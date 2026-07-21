@@ -64,6 +64,13 @@
           };
           skipAutoPermissionPrompt = true;
           skipWorkflowUsageWarning = true;
+          spinnerTipsEnabled = false;
+          promptSuggestionEnabled = false;
+          awaySummaryEnabled = false;
+          # Kills the harness-injected co-author trailer and "Generated with
+          # Claude Code" PR footer at the source; the context rule against
+          # bylines was losing to the harness's own prompt.
+          includeCoAuthoredBy = false;
           # Teammates spawn as tmux split panes when the session runs inside
           # tmux; falls back to in-process otherwise.
           teammateMode = "auto";

@@ -18,6 +18,7 @@
           researcher = ./claude/researcher.md;
           deep-researcher = ./claude/deep-researcher.md;
           implementer = ./claude/implementer.md;
+          integrator = ./claude/integrator.md;
           reviewer = ./claude/reviewer.md;
           deep-reviewer = ./claude/deep-reviewer.md;
           security-reviewer = ./claude/security-reviewer.md;

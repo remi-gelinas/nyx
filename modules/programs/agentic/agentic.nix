@@ -4,6 +4,7 @@
     claude-code
     agent-orchestration
     cliproxyapi
+    codebase-memory
     rtk
     practical-skills
   ];

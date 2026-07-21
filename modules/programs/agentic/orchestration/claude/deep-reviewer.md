@@ -1,8 +1,8 @@
 ---
 name: deep-reviewer
 description: Use for difficult or high-risk reviews that need more judgment than the standard reviewer but do not require the root Fable agent.
-tools: Read, Grep, Glob, Bash, SendMessage, TaskGet, TaskList, TaskUpdate
-model: claude-opus-4-8
+tools: Read, Grep, Glob, Bash, SendMessage, TaskGet, TaskList, TaskUpdate, mcp__plugin_claude-code-home-manager_codebase-memory
+model: opus
 effort: high
 permissionMode: plan
 ---

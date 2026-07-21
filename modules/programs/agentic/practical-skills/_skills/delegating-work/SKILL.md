@@ -17,6 +17,6 @@ Require the output artifact and validation evidence as the deliverable. Process 
 
 Do not delegate trivial work, tightly coupled work, security-critical decisions, or work blocked on architecture. State the applicable exception before doing such work locally.
 
-Require delegated agents to avoid further delegation, Git writes, documentation, worktrees, adjacent redesign, and scope expansion unless explicitly assigned.
+Require delegated agents to avoid further delegation, documentation, adjacent redesign, and scope expansion unless explicitly assigned. Git scope follows the shared rules: local commits inside an assigned worktree are fine when the flow needs them; pushing, branch or worktree creation, and touching trees outside the assignment stay forbidden.
 
 Inspect all returned artifacts and diffs. Integrate them yourself and run integrated validation. Give the final reviewer only the integrated diff or artifact, acceptance criteria, and relevant call paths. Do not pass broad history or create per-task review loops.

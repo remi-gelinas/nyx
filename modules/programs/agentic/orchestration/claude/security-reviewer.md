@@ -1,8 +1,8 @@
 ---
 name: security-reviewer
 description: Read-only security review of changes that touch authentication, authorization, secrets, untrusted input, network-exposed surfaces, or dependencies.
-tools: Read, Grep, Glob, Bash, SendMessage, TaskGet, TaskList, TaskUpdate
-model: claude-opus-4-8
+tools: Read, Grep, Glob, Bash, SendMessage, TaskGet, TaskList, TaskUpdate, mcp__plugin_claude-code-home-manager_codebase-memory
+model: opus
 effort: high
 permissionMode: plan
 ---
