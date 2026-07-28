@@ -113,13 +113,3 @@ the claim lands is the single most common cause of collisions.
 
 - Never chain `cd` with other commands; keep commands atomic and avoid
   `&&`/`;` when separate calls work.
-
-### Code search
-
-- Query the codebase-memory graph before grepping or reading: it answers
-  structure and usage questions in one call. Index a repo once if it
-  isn't yet, then reuse the index.
-- `search_code` is graph-augmented grep over the indexed repo. Plain grep
-  and file reads remain for uncommitted changes and the exact hunks being
-  edited. The index cache is machine-global — pass a checkout path
-  instead of falling back to grep across a repo boundary.
