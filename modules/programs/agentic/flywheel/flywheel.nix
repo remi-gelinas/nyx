@@ -2,6 +2,12 @@
   flake.modules.homeManager.flywheel =
     { config, pkgs, ... }:
     let
+      # Same paths agent-mail.nix pins; recomputed here so flywheel-init is
+      # self-sufficient and works even from a stale pre-switch shell that never
+      # sourced the exports.
+      storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
+      databaseUrl = "sqlite+aiosqlite:///${storageRoot}/storage.sqlite3";
+
       # Harvested from post_compact_reminder's installer (the script it embeds
       # in render_hook_script, default TEMPLATE_DEFAULT message) rather than
       # running the installer: shebang comes from writeShellScript, jq is
@@ -92,6 +98,9 @@
       # `.git/hooks/`. `guard install` takes PROJECT and REPO positionally
       # (both the absolute repo path).
       programs.fish.functions.flywheel-init = ''
+        set -lx STORAGE_ROOT ${storageRoot}
+        set -lx DATABASE_URL ${databaseUrl}
+        set -lx GIT_IDENTITY_ENABLED 1
         if test -d .beads/embeddeddolt
           echo "This repo has a bd (Dolt) board at .beads/; br would collide. Migrate it (bd export | br import) or run the flywheel on a repo without one. Aborting."
           return 1

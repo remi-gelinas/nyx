@@ -126,6 +126,19 @@
           DATABASE_URL = databaseUrl;
         };
 
+        # home.sessionVariables only reaches POSIX shells (hm-session-vars.sh);
+        # this host's shell is fish, which never sources it — so without this
+        # the register shim/guard install fall back to a cwd-relative DB (stray
+        # storage.sqlite3 in the repo) and, worse, the pre-commit hook sees no
+        # GIT_IDENTITY_ENABLED at commit time and self-exits without enforcing.
+        # `set -gx` exports to fish and every process it launches (agents, and
+        # the git commit that triggers the hook).
+        programs.fish.interactiveShellInit = ''
+          set -gx STORAGE_ROOT ${storageRoot}
+          set -gx DATABASE_URL ${databaseUrl}
+          set -gx GIT_IDENTITY_ENABLED 1
+        '';
+
         # Claude Code reaches the running service over the streamable HTTP
         # transport; no auth header since the server bypasses auth on the
         # loopback bind.
