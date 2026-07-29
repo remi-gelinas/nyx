@@ -3,6 +3,7 @@
     { pkgs, ... }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
 
       # ntm shells out to tmux and to the agent CLIs (claude/codex/gemini) at
       # runtime. tmux is wrapped onto its PATH from nixpkgs; the agent CLIs
@@ -26,11 +27,8 @@
         # never lib.licenses.mit.
         meta = {
           mainProgram = "ntm";
-          license = {
-            fullName = "MIT License (with OpenAI/Anthropic Rider)";
-            shortName = "mit-openai-anthropic-rider";
+          license = riderLicense // {
             url = "https://github.com/Dicklesworthstone/ntm/blob/v${sources.ntm.version}/LICENSE";
-            free = false;
           };
         };
       };

@@ -3,6 +3,7 @@
     { pkgs, lib, ... }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
 
       # rust-toolchain.toml pins nightly for the whole workspace, but the
       # only load-bearing reason is the transitive `asupersync` dependency
@@ -102,8 +103,7 @@
           homepage = "https://github.com/Dicklesworthstone/coding_agent_session_search";
           # Rider-carrying license (see the ADR closed as nyx-o2a): never
           # lib.licenses.mit, always this unfree custom shape.
-          license = lib.licenses.unfree // {
-            fullName = "MIT License (with OpenAI/Anthropic Rider)";
+          license = riderLicense // {
             url = "https://github.com/Dicklesworthstone/coding_agent_session_search/blob/v${sources.cass.version}/LICENSE";
           };
           mainProgram = "cass";

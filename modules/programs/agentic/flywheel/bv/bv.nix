@@ -3,6 +3,7 @@
     { pkgs, lib, ... }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
 
       # Built from pinned source; upstream's own flake.nix builds the same
       # way (buildGoModule, vendor/ committed so vendorHash = null).
@@ -24,12 +25,7 @@
           # Rider restricts use by/for OpenAI and Anthropic; never
           # lib.licenses.mit. See ADR nyx-o2a: risk accepted, rider is read
           # as targeting the AI vendors, not the individual licensee.
-          license = {
-            fullName = "MIT License with OpenAI/Anthropic Rider";
-            shortName = "mit-openai-anthropic-rider";
-            free = false;
-            redistributable = false;
-          };
+          license = riderLicense;
           mainProgram = "bv";
           platforms = lib.platforms.unix;
         };

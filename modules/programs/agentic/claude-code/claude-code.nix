@@ -8,8 +8,6 @@
     {
       imports = with self.modules.homeManager; [
         claude-code-zed
-        claude-code-tmux
-        claude-code-cost-ledger
       ];
 
       programs.claude-code = {
@@ -28,11 +26,9 @@
           permissions = {
             defaultMode = "auto";
             # Dependency installs and local git writes must not stall
-            # autonomous teams on approval prompts. rtk's PreToolUse hook
-            # rewrites commands before permission evaluation, so each rule
-            # needs its rtk-prefixed twin. Pushes are deliberately absent:
-            # the Git context rules govern them (non-default branches free,
-            # default/protected branches ask).
+            # autonomous teams on approval prompts. Pushes are deliberately
+            # absent: the Git context rules govern them (non-default
+            # branches free, default/protected branches ask).
             allow =
               let
                 prefixes = [
@@ -60,7 +56,7 @@
                   "git restore"
                 ];
               in
-              map (p: "Bash(${p}:*)") (prefixes ++ map (p: "rtk ${p}") prefixes);
+              map (p: "Bash(${p}:*)") prefixes;
           };
           skipAutoPermissionPrompt = true;
           skipWorkflowUsageWarning = true;
@@ -87,14 +83,25 @@
 
         skills = {
           dendritic-nix = ./_skills/dendritic-nix;
-          ponytail = "${sources.ponytail}/skills/ponytail";
-          ponytail-audit = "${sources.ponytail}/skills/ponytail-audit";
-          ponytail-debt = "${sources.ponytail}/skills/ponytail-debt";
-          ponytail-gain = "${sources.ponytail}/skills/ponytail-gain";
-          ponytail-help = "${sources.ponytail}/skills/ponytail-help";
-          ponytail-review = "${sources.ponytail}/skills/ponytail-review";
         };
       };
+
+      # The org policy pins new sessions to sonnet regardless of settings.json;
+      # force opus-5 at launch unless the caller passes an explicit --model.
+      # Subcommands take no --model flag, so pass them through untouched. No
+      # --agent injection: the lead role left with the orchestration stack.
+      programs.fish.functions.claude = ''
+        set -l passthrough agents auth auto-mode doctor gateway install mcp plugin plugins project setup-token ultrareview update upgrade
+        if test (count $argv) -gt 0; and contains -- $argv[1] $passthrough
+          command claude $argv
+        else
+          set -l extra
+          if not string match -qr -- '^--model(=.*)?$' $argv
+            set -a extra --model claude-opus-5
+          end
+          command claude $extra $argv
+        end
+      '';
 
       home.file."${config.programs.claude-code.configDir}/settings.json".force = true;
     };

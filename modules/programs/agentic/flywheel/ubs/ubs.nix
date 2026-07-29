@@ -3,6 +3,7 @@
     { pkgs, ... }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
 
       # ubs is a pure-bash meta-runner: a single ~3.7k-line dispatcher script
       # plus bundled per-language modules/*.sh, no compiled binary. It
@@ -56,11 +57,8 @@
           mainProgram = "ubs";
           # MIT with an added OpenAI/Anthropic use rider; risk accepted per
           # ADR nyx-o2a, carried as an unfree custom license, never mit.
-          license = {
-            fullName = "MIT License (with OpenAI/Anthropic Rider)";
-            shortName = "mit-openai-anthropic-rider";
+          license = riderLicense // {
             url = "https://github.com/Dicklesworthstone/ultimate_bug_scanner/blob/v${sources.ubs.version}/LICENSE";
-            free = false;
           };
         };
       };
