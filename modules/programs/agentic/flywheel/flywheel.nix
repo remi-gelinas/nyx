@@ -60,12 +60,15 @@
     {
       home.packages = [ pkgs.master.codex ];
 
-      # Turns on agent-mail's advisory lease guard. The installed pre-commit
-      # hook self-exits unless this (or WORKTREES_ENABLED) is truthy in the
-      # committing agent's environment, and `guard install` skips outright
-      # without it. The flywheel is single-branch with per-agent git identity,
-      # so the identity gate is the right one, and it is a constant — global
-      # session env, not a per-pane export like BR_ACTOR/AGENT_NAME.
+      # The guard gate. `settings.worktrees_enabled` is (WORKTREES_ENABLED OR
+      # GIT_IDENTITY_ENABLED); either satisfies both `guard install` and the
+      # runtime hook's commit-time re-check. The flywheel is single-branch with
+      # per-agent git identity, so the identity alias is the honest name, and
+      # it is a constant — global session env, not a per-pane export like
+      # BR_ACTOR/AGENT_NAME. (STORAGE_ROOT and DATABASE_URL are set alongside
+      # in agent-mail.nix.) PROJECT_IDENTITY_MODE is left at its default `dir`
+      # so the project slug stays slugify(path) and the register shim, the
+      # guard, and the server all compute the same slug.
       home.sessionVariables.GIT_IDENTITY_ENABLED = "1";
 
       # br ships its skill under .claude/skills/br/ in the pinned source
@@ -80,13 +83,14 @@
       # Per-repo mechanical bootstrap only — no committed context. The tool
       # blurbs and methodology live in global operator context (see below), so
       # a solo adopter never writes a flywheel-flavored AGENTS.md into a shared
-      # repo. This initializes the local bead board and installs the advisory
-      # pre-commit lease guard, both of which are local state (`.beads/` is
-      # gitignorable, the guard lives in `.git/hooks/`), not shared context.
-      # `guard install` takes PROJECT and REPO positionally (verified against
-      # the built binary); the project_key convention is the absolute repo
-      # path, so both get $PWD. Refuses to touch a repo that already has a
-      # `bd`-format board, since br and bd both claim `.beads/`.
+      # repo. Steps, in order: refuse a repo that already has a bd (Dolt) board
+      # (br and bd both claim `.beads/`); init the br board; register the repo
+      # as an agent-mail project (MCP-only op, done headlessly via the register
+      # shim, so the next step's DB lookup succeeds); install the advisory
+      # pre-commit lease guard. All local state — `.beads/` is gitignorable,
+      # registration lands in the shared DATABASE_URL, the guard in
+      # `.git/hooks/`. `guard install` takes PROJECT and REPO positionally
+      # (both the absolute repo path).
       programs.fish.functions.flywheel-init = ''
         if test -d .beads/embeddeddolt
           echo "This repo has a bd (Dolt) board at .beads/; br would collide. Migrate it (bd export | br import) or run the flywheel on a repo without one. Aborting."
@@ -95,8 +99,9 @@
         if not test -d .beads
           br init
         end
+        flywheel-register-project $PWD
         mcp-agent-mail guard install $PWD $PWD
-        echo "Board and lease guard ready. Export BR_ACTOR and AGENT_NAME in every agent pane before running br or agent-mail calls."
+        echo "Board, agent-mail project, and lease guard ready. Export BR_ACTOR and AGENT_NAME in every agent pane before running br or agent-mail calls."
       '';
 
       # The bd allows vanished with the beads module; these are the flywheel

@@ -18,6 +18,29 @@
       # for zero security gain over the loopback bind.
       mcpUrl = "http://127.0.0.1:8765/api/";
 
+      # Two independent roots agent-mail resolves, both defaulting to
+      # cwd-relative/ambiguous paths that must be pinned so the launchd
+      # service, the CLI `guard install`, the headless project-register shim,
+      # and every agent's CLI call all read the SAME sqlite row + archive.
+      # STORAGE_ROOT holds the git-mailbox archive (the guard reads reservation
+      # JSON from here); DATABASE_URL is the sqlite the project registry lives
+      # in — its default `./storage.sqlite3` is cwd-relative, which is what
+      # scattered stray DBs into repos and made `guard install` read an empty
+      # DB and report "Project not found".
+      storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
+      databaseUrl = "sqlite+aiosqlite:///${storageRoot}/storage.sqlite3";
+
+      # Project registration is MCP-only (no CLI), but `_ensure_project` is an
+      # importable coroutine, so flywheel-init can register a repo headlessly
+      # before `guard install` (which looks the project up in the DB). Runs
+      # against the pinned DATABASE_URL so the row lands where guard install
+      # and the service read it.
+      registerScript = pkgs.writeText "flywheel-register-project.py" ''
+        import asyncio, sys
+        from mcp_agent_mail.app import _ensure_project
+        asyncio.run(_ensure_project(sys.argv[1]))
+      '';
+
       pythonDeps = with ps; [
         aiolimiter
         aiosqlite
@@ -76,6 +99,9 @@
           makeWrapper ${ps.python.interpreter} $out/bin/mcp-agent-mail \
             --add-flags "-m mcp_agent_mail.cli" \
             --prefix PYTHONPATH : "$out/${ps.python.sitePackages}:${ps.makePythonPath pythonDeps}"
+          makeWrapper ${ps.python.interpreter} $out/bin/flywheel-register-project \
+            --add-flags "${registerScript}" \
+            --prefix PYTHONPATH : "$out/${ps.python.sitePackages}:${ps.makePythonPath pythonDeps}"
         '';
 
         meta = {
@@ -91,6 +117,14 @@
     lib.mkMerge [
       {
         home.packages = [ mcp-agent-mail ];
+
+        # Pin both roots globally so the service, `guard install`, the register
+        # shim, and every agent's CLI call agree on one sqlite + archive.
+        # GIT_IDENTITY_ENABLED (the guard gate) is set alongside in flywheel.nix.
+        home.sessionVariables = {
+          STORAGE_ROOT = storageRoot;
+          DATABASE_URL = databaseUrl;
+        };
 
         # Claude Code reaches the running service over the streamable HTTP
         # transport; no auth header since the server bypasses auth on the
@@ -128,14 +162,12 @@
         '';
       }
       (lib.mkIf pkgs.stdenv.isDarwin (
-        let
-          storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
-        in
         {
-          # The sqlite path resolves against the process working directory, so
-          # the service must run inside its storage root or it dies at startup
-          # with "unable to open database file" and KeepAlive loops forever.
-          # git is on PATH because the mailbox is a GitPython-managed repo.
+          # Working dir stays the storage root (belt-and-suspenders for any
+          # path agent-mail still resolves cwd-relative), but DATABASE_URL and
+          # STORAGE_ROOT are set explicitly so the service reads the same DB the
+          # CLI and register shim write to. git is on PATH because the mailbox
+          # is a GitPython-managed repo.
           launchd.agents.mcp-agent-mail = {
             enable = true;
             config = {
@@ -151,6 +183,7 @@
               EnvironmentVariables = {
                 PATH = "${pkgs.git}/bin:/usr/bin:/bin";
                 STORAGE_ROOT = storageRoot;
+                DATABASE_URL = databaseUrl;
               };
               KeepAlive = true;
               RunAtLoad = true;
@@ -160,11 +193,12 @@
           };
 
           # The schema is not created on first serve; without this the service
-          # cannot start at all. Idempotent: migrate only when the db is absent.
+          # cannot start at all. Idempotent: migrate only when the db is absent,
+          # against the pinned DATABASE_URL.
           home.activation.agentMailMigrate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
             if [ ! -f "${storageRoot}/storage.sqlite3" ]; then
               run mkdir -p "${storageRoot}"
-              run cd "${storageRoot}" && run ${mcp-agent-mail}/bin/mcp-agent-mail migrate
+              run env DATABASE_URL="${databaseUrl}" STORAGE_ROOT="${storageRoot}" ${mcp-agent-mail}/bin/mcp-agent-mail migrate
             fi
           '';
         }
