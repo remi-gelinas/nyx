@@ -90,12 +90,19 @@
 
       # The org policy pins new sessions to sonnet regardless of settings.json;
       # force opus-5 at launch unless the caller passes an explicit --model.
-      # No --agent injection: the lead role left with the orchestration stack.
+      # Subcommands take no --model flag, so pass them through untouched. No
+      # --agent injection: the lead role left with the orchestration stack.
       programs.fish.functions.claude = ''
-        if not contains -- --model $argv
-            set argv --model claude-opus-5 $argv
+        set -l passthrough agents auth auto-mode doctor gateway install mcp plugin plugins project setup-token ultrareview update upgrade
+        if test (count $argv) -gt 0; and contains -- $argv[1] $passthrough
+          command claude $argv
+        else
+          set -l extra
+          if not contains -- --model $argv
+            set -a extra --model claude-opus-5
+          end
+          command claude $extra $argv
         end
-        command claude $argv
       '';
 
       home.file."${config.programs.claude-code.configDir}/settings.json".force = true;
