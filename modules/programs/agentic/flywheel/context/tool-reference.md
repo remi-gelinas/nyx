@@ -1,35 +1,9 @@
-# AGENTS.md
+# Flywheel tool reference
 
-Copy this file to the target repo's root and fill in every section below
-before any agent starts work. See `flywheel.md` in this directory for the
-operating rules that apply on top of what's written here — this file
-carries only what is specific to this repo.
-
-## Rule 0
-
-The human's instructions override everything.
-
-## Repo setup
-
-Run `flywheel-init` once per repo before any agent starts work. It:
-
-- Copies this template to `./AGENTS.md` if the repo doesn't have one yet.
-- Runs `br init` if `.beads/` doesn't exist yet.
-- Installs agent-mail's advisory pre-commit guard
-  (`mcp-agent-mail guard install`) into the repo.
-
-The guard blocks a commit that touches a path another agent holds an
-exclusive file reservation on, and it requires `AGENT_NAME` to be set —
-export it (along with `BR_ACTOR`) in every agent pane before committing.
-
-## Tool blurbs
-
-One paragraph per project-specific tool an agent will need — what it
-does, when to reach for it, and a worked example. Treat this section as
-the modern equivalent of man pages: an agent should never have to guess
-how a repo-specific tool is invoked.
-
-<!-- - `<tool-name>`: <what it does> <when to use it> <example invocation> -->
+Repo-agnostic reference for the flywheel toolchain. This is global
+operator context (delivered to `~/.claude/CLAUDE.md` and
+`~/.codex/AGENTS.md`), not committed into any project — it applies to
+every session while the flywheel harness is active.
 
 Two per-agent identity vars must be set before any call below will
 work: `BR_ACTOR` (br's actor identity, resolved as
@@ -38,9 +12,7 @@ every mutating br call) and `AGENT_NAME` (the identity agent-mail
 registers under). Neither is derived from git config or the session —
 export both explicitly per agent pane.
 
-<!-- bv-agent-instructions-v3 -->
-
-### br + bv (issue tracking)
+## br + bv (issue tracking)
 
 `br` is the issue-tracking binary — **never `bd`**, that name is
 legacy. `bv` is a read-only sidecar viewer over the same
@@ -65,14 +37,11 @@ dependencies are directed edges (`blocks`, `parent-child`) that gate
 readiness — `br dep add <child> <parent> --type blocks` and
 `br dep tree|list|cycles <id> --json` inspect them.
 
-Git policy: br never commits or pushes. Follow this repository's own
-git instructions for anything git-shaped — if the repository says
-commit only when asked, that rule overrides any generic workflow
-advice here.
+Git policy: br never commits or pushes. Follow the repository's own git
+instructions for anything git-shaped — if the repository says commit
+only when asked, that rule overrides any generic workflow advice here.
 
-<!-- end-bv-agent-instructions -->
-
-### br command cheat-sheet
+## br command cheat-sheet
 
 - **ALWAYS `--json`.** Never parse br's human-formatted output.
 - **ALWAYS `--actor "$ACTOR"`** on every mutating call — `create`,
@@ -93,7 +62,7 @@ advice here.
   .beads/`; commit; push — git stays the agent's job throughout; br
   only ever touches `.beads/`.
 
-### bv --robot-* reference
+## bv --robot-* reference
 
 **Never run bare `bv`** — with no flags it opens an interactive TUI and
 blocks the session; every invocation needs a `--robot-*` flag. Flags:
@@ -106,7 +75,7 @@ blocks the session; every invocation needs a `--robot-*` flag. Flags:
 `--export-graph <file.html>`. Scope any of these with `--label <name>`,
 `--as-of <date>`, or `--recipe actionable|high-impact`.
 
-### ntm (session multiplexer)
+## ntm (session multiplexer)
 
 `ntm` is operator-facing — not for worker agents inside panes. If a
 role needs to inspect or drive other sessions, the agent-usable robot
@@ -118,9 +87,7 @@ surface is `--robot-status`, `--robot-snapshot`, `--robot-context`,
 palette) are human-only. Robot exit codes: `0` success, `1` error, `2`
 unavailable.
 
-<!-- BEGIN_AGENT_MAIL_SNIPPET -->
-
-### agent-mail (file reservations + messaging)
+## agent-mail (file reservations + messaging)
 
 MCP server coordinating concurrent agents on the same repo: register an
 identity, reserve the files you're about to touch, message the agent
@@ -149,22 +116,13 @@ them, don't force it). Full tool surface: identity
 `renew_file_reservations`/`force_release_file_reservation`/
 `install_precommit_guard`.
 
-<!-- END_AGENT_MAIL_SNIPPET -->
+Thread mail to work: when a message concerns a specific issue, use the
+issue id (`br-###` — never the legacy `bd-###`) as the `thread_id`,
+prefix the subject with it, and give any related file reservation a
+`reason` naming the same id, so mail and the bead board point at one
+unit of work.
 
-<!-- BEGIN_BEADS_SNIPPET -->
-
-### agent-mail + beads mapping
-
-When a message concerns a specific issue, thread it consistently: use
-the issue id (`br-###` — never the legacy `bd-###`) as the
-`thread_id`, prefix the subject with it, and give any related file
-reservation a `reason` that names the same id. This keeps mail and the
-bead board pointing at the same unit of work instead of drifting into
-separate threads for one piece of it.
-
-<!-- END_BEADS_SNIPPET -->
-
-### ubs
+## ubs
 
 Golden rule: run `ubs <changed-files>` before every commit. Exit `0`
 means safe to commit; exit `>0` means fix and re-run — don't commit
@@ -174,7 +132,7 @@ committing. Two anti-patterns to avoid: don't full-scan the repo on
 every edit (scope it to the files just touched), and don't patch
 around a finding — fix the root cause it's pointing at.
 
-### dcg
+## dcg
 
 Hook that intercepts destructive shell commands before they execute,
 explains why the command is dangerous, and suggests a safer
@@ -186,18 +144,9 @@ escaping to route around a denial. Advisory, fail-open, and
 Claude-Code-only — Codex agents are unguarded; do not treat this as a
 security boundary.
 
-### cass
+## cass
 
 Searches past agent session transcripts for prior work, decisions, or
 context — reach for it before re-deriving something a session already
 figured out. Invoke via `cass --robot --json <query>`; an optional
 semantic model changes ranking quality, not the interface.
-
-## Build & test
-
-Commands that actually work in this repo, verified by running them —
-not recalled from memory or copied from another repo's AGENTS.md.
-
-<!-- - Build: `<command>` -->
-<!-- - Test: `<command>` -->
-<!-- - Lint: `<command>` -->

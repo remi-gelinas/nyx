@@ -52,10 +52,21 @@
           ${bvSources.bv.src}/SKILL.md > $out/SKILL.md
       '';
 
-      agentsTemplate = ./context/AGENTS-template.md;
+      # Global operator context = the methodology rules plus the repo-agnostic
+      # tool reference, delivered to both harnesses' user-level instruction
+      # files. Nothing here is committed into a project.
+      globalContext = builtins.readFile ./context/flywheel.md + "\n" + builtins.readFile ./context/tool-reference.md;
     in
     {
       home.packages = [ pkgs.master.codex ];
+
+      # Turns on agent-mail's advisory lease guard. The installed pre-commit
+      # hook self-exits unless this (or WORKTREES_ENABLED) is truthy in the
+      # committing agent's environment, and `guard install` skips outright
+      # without it. The flywheel is single-branch with per-agent git identity,
+      # so the identity gate is the right one, and it is a constant — global
+      # session env, not a per-pane export like BR_ACTOR/AGENT_NAME.
+      home.sessionVariables.GIT_IDENTITY_ENABLED = "1";
 
       # br ships its skill under .claude/skills/br/ in the pinned source
       # already, references/ included — pointed at directly rather than
@@ -66,21 +77,26 @@
         ntm = ntmSkill;
       };
 
-      # Mechanizes the per-repo bootstrap from flywheel.md: template the
-      # AGENTS.md, initialize the bead board, and install the mail server's
-      # advisory pre-commit lease guard. `guard install` takes PROJECT and
-      # REPO positionally (verified against the built mcp-agent-mail binary);
-      # project_key convention throughout is the absolute repo path, so both
-      # get $PWD.
+      # Per-repo mechanical bootstrap only — no committed context. The tool
+      # blurbs and methodology live in global operator context (see below), so
+      # a solo adopter never writes a flywheel-flavored AGENTS.md into a shared
+      # repo. This initializes the local bead board and installs the advisory
+      # pre-commit lease guard, both of which are local state (`.beads/` is
+      # gitignorable, the guard lives in `.git/hooks/`), not shared context.
+      # `guard install` takes PROJECT and REPO positionally (verified against
+      # the built binary); the project_key convention is the absolute repo
+      # path, so both get $PWD. Refuses to touch a repo that already has a
+      # `bd`-format board, since br and bd both claim `.beads/`.
       programs.fish.functions.flywheel-init = ''
-        if not test -f AGENTS.md
-          cp ${agentsTemplate} AGENTS.md
+        if test -d .beads/embeddeddolt
+          echo "This repo has a bd (Dolt) board at .beads/; br would collide. Migrate it (bd export | br import) or run the flywheel on a repo without one. Aborting."
+          return 1
         end
         if not test -d .beads
           br init
         end
         mcp-agent-mail guard install $PWD $PWD
-        echo "Export BR_ACTOR and AGENT_NAME in every agent pane before running br or agent-mail calls."
+        echo "Board and lease guard ready. Export BR_ACTOR and AGENT_NAME in every agent pane before running br or agent-mail calls."
       '';
 
       # The bd allows vanished with the beads module; these are the flywheel
@@ -111,13 +127,13 @@
         }
       ];
 
-      # Global operating rules for both harnesses. Claude Code renders context
-      # into ~/.claude/CLAUDE.md (and reads AGENTS.md natively as of 2.1.211,
-      # so no CLAUDE.md->AGENTS.md symlink is needed); Codex reads its global
-      # instructions from ~/.codex/AGENTS.md. AGENTS-template.md stays a
-      # per-repo template the user copies into each project, not global.
-      programs.claude-code.context = builtins.readFile ./context/flywheel.md;
-      home.file.".codex/AGENTS.md".text = builtins.readFile ./context/flywheel.md;
+      # Global operating rules + tool reference for both harnesses. Claude Code
+      # renders context into ~/.claude/CLAUDE.md; Codex reads ~/.codex/AGENTS.md.
+      # Both are user-level and machine-local — a solo adopter's flywheel
+      # knowledge reaches their own agents on every repo without committing
+      # anything, so shared repos and their other contributors are untouched.
+      programs.claude-code.context = globalContext;
+      home.file.".codex/AGENTS.md".text = globalContext;
       home.file."${config.programs.claude-code.configDir}/CLAUDE.md".force = true;
     };
 }
