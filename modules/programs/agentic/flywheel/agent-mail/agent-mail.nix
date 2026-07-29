@@ -109,28 +109,47 @@
           url = "${mcpUrl}"
         '';
       }
-      (lib.mkIf pkgs.stdenv.isDarwin {
-        # Single long-lived HTTP server both harnesses share. STORAGE_ROOT is
-        # left at its default (~/.mcp_agent_mail_git_mailbox_repo); git is put
-        # on PATH because the mailbox is a GitPython-managed repo.
-        launchd.agents.mcp-agent-mail = {
-          enable = true;
-          config = {
-            ProgramArguments = [
-              "${mcp-agent-mail}/bin/mcp-agent-mail"
-              "serve-http"
-              "--host"
-              "127.0.0.1"
-              "--port"
-              "8765"
-            ];
-            EnvironmentVariables.PATH = "${pkgs.git}/bin:/usr/bin:/bin";
-            KeepAlive = true;
-            RunAtLoad = true;
-            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
-            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+      (lib.mkIf pkgs.stdenv.isDarwin (
+        let
+          storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
+        in
+        {
+          # The sqlite path resolves against the process working directory, so
+          # the service must run inside its storage root or it dies at startup
+          # with "unable to open database file" and KeepAlive loops forever.
+          # git is on PATH because the mailbox is a GitPython-managed repo.
+          launchd.agents.mcp-agent-mail = {
+            enable = true;
+            config = {
+              ProgramArguments = [
+                "${mcp-agent-mail}/bin/mcp-agent-mail"
+                "serve-http"
+                "--host"
+                "127.0.0.1"
+                "--port"
+                "8765"
+              ];
+              WorkingDirectory = storageRoot;
+              EnvironmentVariables = {
+                PATH = "${pkgs.git}/bin:/usr/bin:/bin";
+                STORAGE_ROOT = storageRoot;
+              };
+              KeepAlive = true;
+              RunAtLoad = true;
+              StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+              StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+            };
           };
-        };
-      })
+
+          # The schema is not created on first serve; without this the service
+          # cannot start at all. Idempotent: migrate only when the db is absent.
+          home.activation.agentMailMigrate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            if [ ! -f "${storageRoot}/storage.sqlite3" ]; then
+              run mkdir -p "${storageRoot}"
+              run cd "${storageRoot}" && run ${mcp-agent-mail}/bin/mcp-agent-mail migrate
+            fi
+          '';
+        }
+      ))
     ];
 }
