@@ -2,13 +2,17 @@
 # out of import-tree; imported directly by ubs.nix.
 { fetchFromGitHub }:
 {
-  ubs = rec {
-    version = "5.3.7";
-    src = fetchFromGitHub {
-      owner = "Dicklesworthstone";
-      repo = "ultimate_bug_scanner";
-      tag = "v${version}";
-      hash = "sha256-63jYXSJXnLWyxq2h0aFZM7SVkb8C/yOsft6vKO9NUAU=";
+  ubs =
+    let
+      version = "5.3.7";
+    in
+    {
+      inherit version;
+      src = fetchFromGitHub {
+        owner = "Dicklesworthstone";
+        repo = "ultimate_bug_scanner";
+        tag = "v${version}";
+        hash = "sha256-63jYXSJXnLWyxq2h0aFZM7SVkb8C/yOsft6vKO9NUAU=";
+      };
     };
-  };
 }
