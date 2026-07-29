@@ -9,6 +9,19 @@ carries only what is specific to this repo.
 
 The human's instructions override everything.
 
+## Repo setup
+
+Run `flywheel-init` once per repo before any agent starts work. It:
+
+- Copies this template to `./AGENTS.md` if the repo doesn't have one yet.
+- Runs `br init` if `.beads/` doesn't exist yet.
+- Installs agent-mail's advisory pre-commit guard
+  (`mcp-agent-mail guard install`) into the repo.
+
+The guard blocks a commit that touches a path another agent holds an
+exclusive file reservation on, and it requires `AGENT_NAME` to be set —
+export it (along with `BR_ACTOR`) in every agent pane before committing.
+
 ## Tool blurbs
 
 One paragraph per project-specific tool an agent will need — what it
