@@ -8,8 +8,6 @@
     {
       imports = with self.modules.homeManager; [
         claude-code-zed
-        claude-code-tmux
-        claude-code-cost-ledger
       ];
 
       programs.claude-code = {
@@ -87,14 +85,18 @@
 
         skills = {
           dendritic-nix = ./_skills/dendritic-nix;
-          ponytail = "${sources.ponytail}/skills/ponytail";
-          ponytail-audit = "${sources.ponytail}/skills/ponytail-audit";
-          ponytail-debt = "${sources.ponytail}/skills/ponytail-debt";
-          ponytail-gain = "${sources.ponytail}/skills/ponytail-gain";
-          ponytail-help = "${sources.ponytail}/skills/ponytail-help";
-          ponytail-review = "${sources.ponytail}/skills/ponytail-review";
         };
       };
+
+      # The org policy pins new sessions to sonnet regardless of settings.json;
+      # force opus-5 at launch unless the caller passes an explicit --model.
+      # No --agent injection: the lead role left with the orchestration stack.
+      programs.fish.functions.claude = ''
+        if not contains -- --model $argv
+            set argv --model claude-opus-5 $argv
+        end
+        command claude $argv
+      '';
 
       home.file."${config.programs.claude-code.configDir}/settings.json".force = true;
     };
