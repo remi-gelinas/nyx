@@ -35,5 +35,12 @@
     in
     {
       home.packages = [ ntm ];
+
+      # ntm's fish integration (command palette keybinding, completions,
+      # session helpers) — upstream's documented `ntm shell fish | source`,
+      # run once per interactive shell rather than hand-edited into config.fish.
+      programs.fish.interactiveShellInit = ''
+        ${ntm}/bin/ntm shell fish | source
+      '';
     };
 }
