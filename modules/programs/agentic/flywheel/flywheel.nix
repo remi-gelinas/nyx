@@ -8,6 +8,30 @@
       storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
       databaseUrl = "sqlite+aiosqlite:///${storageRoot}/storage.sqlite3";
 
+      # The lease guard reads AGENT_NAME from the commit env, but ntm assigns
+      # per-pane identity in its own table and never exports it (confirmed by
+      # spawning: pane 1 registered as an agent name, tmux env carried none of
+      # it — and tmux session env is shared, so it structurally can't hold a
+      # distinct name per pane). This wrapper recovers the identity from ground
+      # truth at commit time: TMUX_PANE (set per pane by tmux) looked up in
+      # `ntm mapping`'s pane->name table. It fronts the guard's chain-runner so
+      # every chained hook inherits AGENT_NAME/BR_ACTOR. No-op outside tmux/ntm
+      # (a non-swarm commit then hits the guard's normal AGENT_NAME error).
+      identityWrapper = pkgs.writeShellScript "flywheel-precommit-identity" ''
+        # flywheel-identity-wrapper
+        if [ -z "$AGENT_NAME" ] && [ -n "$TMUX_PANE" ] && command -v ntm >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then
+          _session=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+          if [ -n "$_session" ]; then
+            _name=$(ntm mapping --session "$_session" 2>/dev/null | ${pkgs.gawk}/bin/awk -v p="$TMUX_PANE" '$3==p{print $1; exit}')
+            if [ -n "$_name" ]; then
+              AGENT_NAME="$_name"; export AGENT_NAME
+              [ -z "$BR_ACTOR" ] && { BR_ACTOR="$_name"; export BR_ACTOR; }
+            fi
+          fi
+        fi
+        exec "$(dirname "$0")/pre-commit.flywheel-inner" "$@"
+      '';
+
       # Harvested from post_compact_reminder's installer (the script it embeds
       # in render_hook_script, default TEMPLATE_DEFAULT message) rather than
       # running the installer: shebang comes from writeShellScript, jq is
@@ -110,7 +134,16 @@
         end
         flywheel-register-project $PWD
         mcp-agent-mail guard install $PWD $PWD
-        echo "Board, agent-mail project, and lease guard ready. Export BR_ACTOR and AGENT_NAME in every agent pane before running br or agent-mail calls."
+        # Front the guard's chain-runner with the identity wrapper so
+        # AGENT_NAME auto-derives from the tmux pane. Re-wrap whenever the
+        # current hook isn't ours (guard install regenerates it on re-runs).
+        set -l hook .git/hooks/pre-commit
+        if test -f $hook; and not grep -q flywheel-identity-wrapper $hook
+          mv $hook $hook.flywheel-inner
+          cp ${identityWrapper} $hook
+          chmod +x $hook
+        end
+        echo "Board, agent-mail project, and lease guard ready. Agent identity auto-derives from the tmux pane; no per-pane AGENT_NAME export needed."
       '';
 
       # The bd allows vanished with the beads module; these are the flywheel

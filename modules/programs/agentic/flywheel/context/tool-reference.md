@@ -5,12 +5,14 @@ operator context (delivered to `~/.claude/CLAUDE.md` and
 `~/.codex/AGENTS.md`), not committed into any project — it applies to
 every session while the flywheel harness is active.
 
-Two per-agent identity vars must be set before any call below will
-work: `BR_ACTOR` (br's actor identity, resolved as
-`ACTOR="${BR_ACTOR:-assistant}"` then passed as `--actor "$ACTOR"` on
-every mutating br call) and `AGENT_NAME` (the identity agent-mail
-registers under). Neither is derived from git config or the session —
-export both explicitly per agent pane.
+Your agent identity is the name ntm assigned you — the one in the "You
+are agent <name>" line of your instructions; ntm has already registered
+you with agent-mail under it, so no `register_agent` call or `AGENT_NAME`
+export is needed, and the lease guard auto-derives it from your tmux pane
+at commit time. The one place you must supply it yourself is br: it has
+no way to know your name, so pass `--actor <your agent name>` on every
+mutating br call (`create`/`update`/`close`). Unset, br attributes
+everything to the literal "assistant" and per-agent history collapses.
 
 ## br + bv (issue tracking)
 
@@ -45,8 +47,9 @@ only when asked, that rule overrides any generic workflow advice here.
 
 - **ALWAYS `--json`.** Never parse br's human-formatted output.
 - **ALWAYS `--actor "$ACTOR"`** on every mutating call — `create`,
-  `update`, `close` all require it. Resolve actor once per session:
-  `ACTOR="${BR_ACTOR:-assistant}"`.
+  `update`, `close` all require it. Set `ACTOR` once to your assigned
+  agent name (the "You are agent <name>" line), not to `BR_ACTOR` —
+  nothing exports that; the name in your instructions is the source.
 - `br create --actor "$ACTOR" "Title" -p 1 -t task [--assignee X
   --labels a,b --description "..."]`
 - `br update --actor "$ACTOR" <id> --status in_progress --claim`
@@ -93,7 +96,8 @@ MCP server coordinating concurrent agents on the same repo: register an
 identity, reserve the files you're about to touch, message the agent
 whose reservation blocks you instead of guessing or waiting silently.
 Same-repo workflow: `ensure_project` → `register_agent` (with
-`project_key` = absolute repo path, identity from `AGENT_NAME`) →
+`project_key` = absolute repo path, identity is your assigned agent
+name — ntm already registered it) →
 `file_reservation_paths` before editing anything → `send_message` with
 a `thread_id` for anything expecting a reply → `fetch_inbox` /
 `acknowledge_message` on the receiving end. Cross-repo mail needs
