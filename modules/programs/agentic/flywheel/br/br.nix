@@ -3,6 +3,7 @@
     { pkgs, ... }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
 
       # Built from pinned source. self_update is upstream's default
       # feature (runtime github self-upgrade) — disabled here since Nix
@@ -19,11 +20,7 @@
 
         meta = {
           mainProgram = "br";
-          license = {
-            fullName = "MIT License (with OpenAI/Anthropic Rider)";
-            free = false;
-            redistributable = false;
-          };
+          license = riderLicense;
         };
       };
     in

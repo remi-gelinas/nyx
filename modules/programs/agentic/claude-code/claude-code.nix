@@ -26,11 +26,9 @@
           permissions = {
             defaultMode = "auto";
             # Dependency installs and local git writes must not stall
-            # autonomous teams on approval prompts. rtk's PreToolUse hook
-            # rewrites commands before permission evaluation, so each rule
-            # needs its rtk-prefixed twin. Pushes are deliberately absent:
-            # the Git context rules govern them (non-default branches free,
-            # default/protected branches ask).
+            # autonomous teams on approval prompts. Pushes are deliberately
+            # absent: the Git context rules govern them (non-default
+            # branches free, default/protected branches ask).
             allow =
               let
                 prefixes = [
@@ -58,7 +56,7 @@
                   "git restore"
                 ];
               in
-              map (p: "Bash(${p}:*)") (prefixes ++ map (p: "rtk ${p}") prefixes);
+              map (p: "Bash(${p}:*)") prefixes;
           };
           skipAutoPermissionPrompt = true;
           skipWorkflowUsageWarning = true;
@@ -98,7 +96,7 @@
           command claude $argv
         else
           set -l extra
-          if not contains -- --model $argv
+          if not string match -qr -- '^--model(=.*)?$' $argv
             set -a extra --model claude-opus-5
           end
           command claude $extra $argv

@@ -3,6 +3,7 @@
     { pkgs, lib, ... }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
 
       # Upstream pins release builds to a nightly toolchain purely to dodge a
       # rustix build regression on bare `nightly` (see their rust-toolchain.toml);
@@ -30,8 +31,7 @@
           homepage = "https://github.com/Dicklesworthstone/destructive_command_guard";
           # Rider-carrying license (see the ADR closed as nyx-o2a): never
           # lib.licenses.mit, always this unfree custom shape.
-          license = lib.licenses.unfree // {
-            fullName = "MIT License (with OpenAI/Anthropic Rider)";
+          license = riderLicense // {
             url = "https://github.com/Dicklesworthstone/destructive_command_guard/blob/v${sources.dcg.version}/LICENSE";
           };
           mainProgram = "dcg";

@@ -32,6 +32,11 @@
 
       # The bd allows vanished with the beads module; these are the flywheel
       # tool CLIs agents drive. Concatenates with the claude-code core list.
+      # ntm and cass are kept broad deliberately (single-user machine,
+      # experiment friction outweighs the narrower-allowlist benefit) per
+      # review. agent-mail is MCP-only here: agents drive it through the
+      # MCP server, and the CLI stays reachable via normal prompting without
+      # a standing Bash allow.
       programs.claude-code.settings.permissions.allow = map (p: "Bash(${p}:*)") [
         "br"
         "bv"
@@ -39,7 +44,6 @@
         "ubs"
         "dcg"
         "cass"
-        "mcp-agent-mail"
       ];
 
       programs.claude-code.settings.hooks.SessionStart = [

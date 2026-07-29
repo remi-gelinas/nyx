@@ -169,7 +169,9 @@ alternative. A dcg deny arrives as a PreToolUse denial on the Bash
 call — treat it like any other tool denial: stop, read the
 explanation, and either take the suggested alternative or ask the
 human. Do not retry the same command through different quoting or
-escaping to route around a denial.
+escaping to route around a denial. Advisory, fail-open, and
+Claude-Code-only — Codex agents are unguarded; do not treat this as a
+security boundary.
 
 ### cass
 

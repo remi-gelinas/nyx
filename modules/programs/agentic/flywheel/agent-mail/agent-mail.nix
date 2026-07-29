@@ -8,6 +8,7 @@
     }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      riderLicense = import ../_rider-license.nix;
       ps = pkgs.python3Packages;
 
       # Both harnesses point at the same local HTTP transport. The service
@@ -80,13 +81,8 @@
         meta = {
           description = "Coordinated multi-agent messaging and coordination MCP server";
           homepage = "https://github.com/Dicklesworthstone/mcp_agent_mail";
-          # Rider-carrying license: the MIT grant excludes the AI vendors and
-          # their agents, so this is never lib.licenses.mit.
-          license = {
-            fullName = "MIT License (with OpenAI/Anthropic Rider)";
+          license = riderLicense // {
             url = "https://github.com/Dicklesworthstone/mcp_agent_mail/blob/v${sources.mcp-agent-mail.version}/LICENSE";
-            free = false;
-            redistributable = false;
           };
           mainProgram = "mcp-agent-mail";
         };
