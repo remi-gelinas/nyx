@@ -26,9 +26,62 @@
       # nixpkgs-master for the current release. ntm can then spawn both claude
       # and codex panes. Auth is a one-time interactive `codex login` by the
       # user; this only delivers the binary.
+
+      brSources = import ./br/_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      bvSources = import ./bv/_sources.nix { inherit (pkgs) fetchFromGitHub; };
+      ntmSources = import ./ntm/_sources.nix { inherit (pkgs) fetchFromGitHub; };
+
+      # bv and ntm ship SKILL.md at their repo root rather than under
+      # .claude/skills/, so each gets a minimal one-file skill dir instead of
+      # pointing the skill at the whole repo checkout.
+      ntmSkill = pkgs.runCommand "ntm-skill" { } ''
+        mkdir -p $out
+        cp ${ntmSources.ntm.src}/SKILL.md $out/SKILL.md
+      '';
+
+      # Same treatment for bv, plus a text fix: bv's own "Agent Workflow
+      # Pattern" (not the section below it that's explicitly labeled legacy)
+      # tells the agent to run `bd claim`/`bd close`, but `bd` is the old Go
+      # binary — br is current. Swapped for br's actual equivalents, keyed on
+      # the actor var flywheel-init tells every pane to export.
+      bvSkill = pkgs.runCommand "bv-skill" { } ''
+        mkdir -p $out
+        sed \
+          -e 's/^bd claim "\$NEXT_TASK"$/br update --actor "$BR_ACTOR" "$NEXT_TASK" --status in_progress --claim/' \
+          -e 's/^bd close "\$NEXT_TASK"$/br close --actor "$BR_ACTOR" "$NEXT_TASK" --reason "Completed"/' \
+          ${bvSources.bv.src}/SKILL.md > $out/SKILL.md
+      '';
+
+      agentsTemplate = ./context/AGENTS-template.md;
     in
     {
       home.packages = [ pkgs.master.codex ];
+
+      # br ships its skill under .claude/skills/br/ in the pinned source
+      # already, references/ included — pointed at directly rather than
+      # copied.
+      programs.claude-code.skills = {
+        br = "${brSources.br.src}/.claude/skills/br";
+        bv = bvSkill;
+        ntm = ntmSkill;
+      };
+
+      # Mechanizes the per-repo bootstrap from flywheel.md: template the
+      # AGENTS.md, initialize the bead board, and install the mail server's
+      # advisory pre-commit lease guard. `guard install` takes PROJECT and
+      # REPO positionally (verified against the built mcp-agent-mail binary);
+      # project_key convention throughout is the absolute repo path, so both
+      # get $PWD.
+      programs.fish.functions.flywheel-init = ''
+        if not test -f AGENTS.md
+          cp ${agentsTemplate} AGENTS.md
+        end
+        if not test -d .beads
+          br init
+        end
+        mcp-agent-mail guard install $PWD $PWD
+        echo "Export BR_ACTOR and AGENT_NAME in every agent pane before running br or agent-mail calls."
+      '';
 
       # The bd allows vanished with the beads module; these are the flywheel
       # tool CLIs agents drive. Concatenates with the claude-code core list.
