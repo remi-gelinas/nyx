@@ -1,9 +1,21 @@
 {
   flake.modules.homeManager.flywheel =
-    { pkgs, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
       ps = pkgs.python3Packages;
+
+      # Both harnesses point at the same local HTTP transport. The service
+      # binds 127.0.0.1 only and the server bypasses auth for localhost by
+      # default (HTTP_ALLOW_LOCALHOST_UNAUTHENTICATED), so no bearer is set:
+      # a shared secret here would have to be a world-readable store literal
+      # for zero security gain over the loopback bind.
+      mcpUrl = "http://127.0.0.1:8765/api/";
 
       pythonDeps = with ps; [
         aiolimiter
@@ -80,7 +92,49 @@
         };
       };
     in
-    {
-      home.packages = [ mcp-agent-mail ];
-    };
+    lib.mkMerge [
+      {
+        home.packages = [ mcp-agent-mail ];
+
+        # Claude Code reaches the running service over the streamable HTTP
+        # transport; no auth header since the server bypasses auth on the
+        # loopback bind.
+        programs.claude-code.mcpServers.mcp-agent-mail = {
+          type = "http";
+          url = mcpUrl;
+        };
+
+        # Codex reads MCP servers from ~/.codex/config.toml. Written verbatim
+        # (not via a TOML generator) to keep any future top-level key ahead of
+        # this section header — Codex requires the top-level `notify` key,
+        # when present, to precede all [section] blocks.
+        home.file.".codex/config.toml".text = ''
+          [mcp_servers.mcp_agent_mail]
+          url = "${mcpUrl}"
+        '';
+      }
+      (lib.mkIf pkgs.stdenv.isDarwin {
+        # Single long-lived HTTP server both harnesses share. STORAGE_ROOT is
+        # left at its default (~/.mcp_agent_mail_git_mailbox_repo); git is put
+        # on PATH because the mailbox is a GitPython-managed repo.
+        launchd.agents.mcp-agent-mail = {
+          enable = true;
+          config = {
+            ProgramArguments = [
+              "${mcp-agent-mail}/bin/mcp-agent-mail"
+              "serve-http"
+              "--host"
+              "127.0.0.1"
+              "--port"
+              "8765"
+            ];
+            EnvironmentVariables.PATH = "${pkgs.git}/bin:/usr/bin:/bin";
+            KeepAlive = true;
+            RunAtLoad = true;
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+          };
+        };
+      })
+    ];
 }

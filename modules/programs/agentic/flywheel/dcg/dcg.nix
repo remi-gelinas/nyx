@@ -40,5 +40,21 @@
     in
     {
       home.packages = [ dcg ];
+
+      # dcg reads the pending Bash command from the PreToolUse JSON on stdin
+      # and emits its own permissionDecision JSON; a destructive command comes
+      # back as a deny (e.g. ruleId core.git:reset-hard). The harness owns the
+      # deny contract — nothing here to configure beyond pointing at the binary.
+      programs.claude-code.settings.hooks.PreToolUse = [
+        {
+          matcher = "Bash|PowerShell";
+          hooks = [
+            {
+              type = "command";
+              command = lib.getExe dcg;
+            }
+          ];
+        }
+      ];
     };
 }
