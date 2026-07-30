@@ -174,6 +174,15 @@
             };
           };
 
+          # launchd refuses to spawn a job whose WorkingDirectory is missing,
+          # and the server can only create the storage root once it is
+          # running — so seed the directory (idempotent) or the service
+          # silently never starts on a fresh machine or after the root is
+          # moved aside.
+          home.activation.agentMailStorageRoot = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            run mkdir -p "${storageRoot}"
+          '';
+
           # Working dir stays the storage root (belt-and-suspenders for any
           # path agent-mail still resolves cwd-relative), but DATABASE_URL and
           # STORAGE_ROOT are set explicitly so the service reads the same DB the

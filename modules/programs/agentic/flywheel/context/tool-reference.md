@@ -112,13 +112,16 @@ round-trips into one. Common pitfalls: `from_agent` not registered
 `FILE_RESERVATION_CONFLICT` (someone already holds the file — message
 them, don't force it). Full tool surface: identity
 `ensure_project`/`register_agent`/`whois`/`create_agent_identity`/
-`list_window_identities`; messaging
+`list_agents`/`resolve_pane_identity`; messaging
 `send_message`/`reply_message`/`fetch_inbox`/`mark_message_read`/
-`acknowledge_message`/`search_messages`/`summarize_thread`/
-`fetch_topic`; reservations
-`file_reservation_paths`/`release_file_reservations_tool`/
-`renew_file_reservations`/`force_release_file_reservation`/
-`install_precommit_guard`.
+`acknowledge_message`/`search_messages`/`summarize_thread`;
+reservations
+`file_reservation_paths`/`check_file_reservation_conflicts`/
+`release_file_reservations`/`renew_file_reservations`/
+`force_release_file_reservation`/`install_precommit_guard`;
+contacts `list_contacts`/`request_contact`/`respond_contact`/
+`set_contact_policy`; build slots
+`acquire_build_slot`/`renew_build_slot`/`release_build_slot`.
 
 Thread mail to work: when a message concerns a specific issue, use the
 issue id (`br-###` — never the legacy `bd-###`) as the `thread_id`,
