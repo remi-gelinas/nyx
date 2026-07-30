@@ -7,6 +7,7 @@
       # sourced the exports.
       storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
       databaseUrl = "sqlite+aiosqlite:///${storageRoot}/storage.sqlite3";
+      mcpUrl = "http://127.0.0.1:8765/mcp/";
 
       # The lease guard reads AGENT_NAME from the commit env, but ntm assigns
       # per-pane identity in its own table and never exports it (confirmed by
@@ -15,8 +16,11 @@
       # distinct name per pane). This wrapper recovers the identity from ground
       # truth at commit time: TMUX_PANE (set per pane by tmux) looked up in
       # `ntm mapping`'s pane->name table. It fronts the guard's chain-runner so
-      # every chained hook inherits AGENT_NAME/BR_ACTOR. No-op outside tmux/ntm
-      # (a non-swarm commit then hits the guard's normal AGENT_NAME error).
+      # every chained hook inherits AGENT_NAME/BR_ACTOR. Outside a swarm pane
+      # it falls back to the git author: the hook refuses ALL commits without
+      # AGENT_NAME, and a human committer holds no leases under that name, so
+      # they pass unless they touch a file an agent has reserved — which is
+      # exactly when they should be stopped too.
       identityWrapper = pkgs.writeShellScript "flywheel-precommit-identity" ''
         # flywheel-identity-wrapper
         if [ -z "$AGENT_NAME" ] && [ -n "$TMUX_PANE" ] && command -v ntm >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then
@@ -28,6 +32,10 @@
               [ -z "$BR_ACTOR" ] && { BR_ACTOR="$_name"; export BR_ACTOR; }
             fi
           fi
+        fi
+        if [ -z "$AGENT_NAME" ]; then
+          _author=$(git config user.name 2>/dev/null)
+          [ -n "$_author" ] && { AGENT_NAME="$_author"; export AGENT_NAME; }
         fi
         exec "$(dirname "$0")/pre-commit.flywheel-inner" "$@"
       '';
@@ -90,15 +98,15 @@
     {
       home.packages = [ pkgs.master.codex ];
 
-      # The guard gate. `settings.worktrees_enabled` is (WORKTREES_ENABLED OR
-      # GIT_IDENTITY_ENABLED); either satisfies both `guard install` and the
-      # runtime hook's commit-time re-check. The flywheel is single-branch with
-      # per-agent git identity, so the identity alias is the honest name, and
-      # it is a constant — global session env, not a per-pane export like
-      # BR_ACTOR/AGENT_NAME. (STORAGE_ROOT and DATABASE_URL are set alongside
-      # in agent-mail.nix.) PROJECT_IDENTITY_MODE is left at its default `dir`
-      # so the project slug stays slugify(path) and the register shim, the
-      # guard, and the server all compute the same slug.
+      # Enables agent-mail's per-agent git-identity features. The Rust guard
+      # itself no longer gates on this (it is active unless
+      # FILE_RESERVATIONS_ENFORCEMENT_ENABLED is explicitly false), but the
+      # server's identity features still read it, and it is a constant —
+      # global session env, not a per-pane export like BR_ACTOR/AGENT_NAME.
+      # (STORAGE_ROOT and DATABASE_URL are set alongside in agent-mail.nix.)
+      # PROJECT_IDENTITY_MODE stays at its default `dir` so the project slug
+      # remains slugify(path) and the guard and the server compute the same
+      # slug.
       home.sessionVariables.GIT_IDENTITY_ENABLED = "1";
 
       # br ships its skill under .claude/skills/br/ in the pinned source
@@ -115,12 +123,14 @@
       # a solo adopter never writes a flywheel-flavored AGENTS.md into a shared
       # repo. Steps, in order: refuse a repo that already has a bd (Dolt) board
       # (br and bd both claim `.beads/`); init the br board; register the repo
-      # as an agent-mail project (MCP-only op, done headlessly via the register
-      # shim, so the next step's DB lookup succeeds); install the advisory
-      # pre-commit lease guard. All local state — `.beads/` is gitignorable,
-      # registration lands in the shared DATABASE_URL, the guard in
-      # `.git/hooks/`. `guard install` takes PROJECT and REPO positionally
-      # (both the absolute repo path).
+      # via the running service's ensure_project tool; install the advisory
+      # pre-commit lease guard. The ensure_project call matters even though any
+      # tool call auto-creates the DB row: only ensure_project writes the
+      # archive's project.json, and without it the guard hook cannot attribute
+      # the archive to this repo and silently skips enforcement. All local
+      # state — `.beads/` is gitignorable, the guard in `.git/hooks/`.
+      # `guard install` takes PROJECT and REPO positionally (both the absolute
+      # repo path).
       programs.fish.functions.flywheel-init = ''
         set -lx STORAGE_ROOT ${storageRoot}
         set -lx DATABASE_URL ${databaseUrl}
@@ -132,8 +142,12 @@
         if not test -d .beads
           br init
         end
-        flywheel-register-project $PWD
-        mcp-agent-mail guard install $PWD $PWD
+        set -l resp (curl -s -m 10 -X POST ${mcpUrl} -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"'$PWD'"}}}')
+        if test -z "$resp"; or string match -q '*"isError":true*' -- "$resp"
+          echo "ensure_project failed — is the mcp-agent-mail service running? The lease guard cannot attribute this repo's archive until it succeeds. Aborting."
+          return 1
+        end
+        am guard install $PWD $PWD
         # Front the guard's chain-runner with the identity wrapper so
         # AGENT_NAME auto-derives from the tmux pane. Re-wrap whenever the
         # current hook isn't ours (guard install regenerates it on re-runs).
@@ -150,9 +164,10 @@
       # tool CLIs agents drive. Concatenates with the claude-code core list.
       # ntm and cass are kept broad deliberately (single-user machine,
       # experiment friction outweighs the narrower-allowlist benefit) per
-      # review. agent-mail is MCP-only here: agents drive it through the
-      # MCP server, and the CLI stays reachable via normal prompting without
-      # a standing Bash allow.
+      # review. Agents drive agent-mail primarily through the MCP server, but
+      # `am` (the Rust robot CLI) is allowed too: it is agent-oriented by
+      # design and the server's own error messages direct callers to `am`
+      # commands.
       programs.claude-code.settings.permissions.allow = map (p: "Bash(${p}:*)") [
         "br"
         "bv"
@@ -160,6 +175,7 @@
         "ubs"
         "dcg"
         "cass"
+        "am"
       ];
 
       programs.claude-code.settings.hooks.SessionStart = [
