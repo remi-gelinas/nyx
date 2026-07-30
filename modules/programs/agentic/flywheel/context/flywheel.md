@@ -29,10 +29,17 @@ The human's instructions override everything.
 
 ## Work selection
 
-- Pull work from the computed frontier, never by hand-picking a bead you
-  like: `br ready --json` for the raw frontier, `bv --robot-next` for the
-  viewer's pick.
-- If the frontier is empty, say so and stop. Do not invent work.
+- A direct instruction from the human is your task — carry it out whether
+  or not a bead exists. The rules below govern how you pick up work
+  *autonomously* in a running swarm; they do not gate an explicit request
+  (planning a new effort, a one-off ask, or any work that precedes the
+  board). Planning in particular happens before beads exist and produces
+  the plan that later becomes beads — never wait for a bead to plan.
+- When operating autonomously from the board: pull work from the computed
+  frontier, never by hand-picking a bead you like — `br ready --json` for
+  the raw frontier, `bv --robot-next` for the viewer's pick.
+- If the frontier is empty *and* you have no direct instruction, say so and
+  stop. Do not invent work.
 
 ## Claim protocol, in order
 
