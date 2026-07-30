@@ -30,6 +30,21 @@
       storageRoot = "${config.home.homeDirectory}/.mcp_agent_mail_git_mailbox_repo";
       databaseUrl = "sqlite+aiosqlite:///${storageRoot}/storage.sqlite3";
 
+      # Publishes the three flywheel vars into the user's launchd (gui/$UID)
+      # domain so EVERY later-launched process inherits them — critically the
+      # non-interactive fish panes ntm spawns for workers and the bare
+      # subprocess the pre-commit guard runs as, neither of which sources fish
+      # interactive config. Without this, agents fell back to a cwd-relative
+      # DB (a stray storage.sqlite3 per repo → split-brain reservations that
+      # can't see each other, so exclusivity silently fails) and the guard saw
+      # no GIT_IDENTITY_ENABLED and self-exited without enforcing. launchctl is
+      # at a fixed macOS path; the values match the pins above.
+      sessionEnvSetter = pkgs.writeShellScript "flywheel-session-env" ''
+        /bin/launchctl setenv STORAGE_ROOT "${storageRoot}"
+        /bin/launchctl setenv DATABASE_URL "${databaseUrl}"
+        /bin/launchctl setenv GIT_IDENTITY_ENABLED 1
+      '';
+
       # Project registration is MCP-only (no CLI), but `_ensure_project` is an
       # importable coroutine, so flywheel-init can register a repo headlessly
       # before `guard install` (which looks the project up in the DB). Runs
@@ -94,13 +109,22 @@
 
         # Upstream declares no console script, so the CLI is reachable only as
         # a module; both serve-stdio and serve-http hang off this entry point.
+        # --set-default pins both roots into the binary itself: any CLI call
+        # resolves the central sqlite + archive no matter how it is launched
+        # (non-interactive fish, a bare hook subprocess, an agent shelling out
+        # from a repo cwd) — the case shell env alone cannot cover. An explicit
+        # env override (the launchd service) still wins.
         nativeBuildInputs = [ pkgs.makeWrapper ];
         postInstall = ''
           makeWrapper ${ps.python.interpreter} $out/bin/mcp-agent-mail \
             --add-flags "-m mcp_agent_mail.cli" \
+            --set-default DATABASE_URL "${databaseUrl}" \
+            --set-default STORAGE_ROOT "${storageRoot}" \
             --prefix PYTHONPATH : "$out/${ps.python.sitePackages}:${ps.makePythonPath pythonDeps}"
           makeWrapper ${ps.python.interpreter} $out/bin/flywheel-register-project \
             --add-flags "${registerScript}" \
+            --set-default DATABASE_URL "${databaseUrl}" \
+            --set-default STORAGE_ROOT "${storageRoot}" \
             --prefix PYTHONPATH : "$out/${ps.python.sitePackages}:${ps.makePythonPath pythonDeps}"
         '';
 
@@ -126,13 +150,12 @@
           DATABASE_URL = databaseUrl;
         };
 
-        # home.sessionVariables only reaches POSIX shells (hm-session-vars.sh);
-        # this host's shell is fish, which never sources it — so without this
-        # the register shim/guard install fall back to a cwd-relative DB (stray
-        # storage.sqlite3 in the repo) and, worse, the pre-commit hook sees no
-        # GIT_IDENTITY_ENABLED at commit time and self-exits without enforcing.
-        # `set -gx` exports to fish and every process it launches (agents, and
-        # the git commit that triggers the hook).
+        # Covers the interactive-fish case (hm-session-vars.sh is POSIX-only and
+        # fish never sources it). This reaches a human's own shell and anything
+        # they launch from it, but NOT a non-interactive fish — which is exactly
+        # how ntm spawns worker panes (`fish -c` gets none of these). The
+        # session-wide launchctl agent below is what reaches those; this stays
+        # as the interactive-shell path.
         programs.fish.interactiveShellInit = ''
           set -gx STORAGE_ROOT ${storageRoot}
           set -gx DATABASE_URL ${databaseUrl}
@@ -176,6 +199,23 @@
       }
       (lib.mkIf pkgs.stdenv.isDarwin (
         {
+          # Session-wide env publisher. Runs once at login (RunAtLoad, no
+          # KeepAlive — it exits immediately after the setenv calls) so a
+          # terminal/tmux/ntm started afterward inherits the vars. This is the
+          # only path that reaches ntm's non-interactive worker panes and the
+          # guard's hook subprocess; the fish exports only cover interactive
+          # shells. Start a fresh login shell (or `launchctl kickstart` it)
+          # after switching for it to take effect.
+          launchd.agents.flywheel-session-env = {
+            enable = true;
+            config = {
+              ProgramArguments = [ "${sessionEnvSetter}" ];
+              RunAtLoad = true;
+              StandardOutPath = "${config.home.homeDirectory}/Library/Logs/flywheel-session-env.log";
+              StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/flywheel-session-env.log";
+            };
+          };
+
           # Working dir stays the storage root (belt-and-suspenders for any
           # path agent-mail still resolves cwd-relative), but DATABASE_URL and
           # STORAGE_ROOT are set explicitly so the service reads the same DB the
