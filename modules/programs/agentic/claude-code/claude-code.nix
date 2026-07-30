@@ -67,10 +67,15 @@
           # Claude Code" PR footer at the source; the context rule against
           # bylines was losing to the harness's own prompt.
           includeCoAuthoredBy = false;
-          # Teammates spawn as tmux split panes when the session runs inside
-          # tmux; falls back to in-process otherwise.
-          teammateMode = "auto";
-          env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+          # Agent teams are deliberately OFF on the flywheel branch. The
+          # methodology is a flat peer swarm — ntm spawns sibling agents that
+          # coordinate via agent-mail + file leases; a claude spawning its own
+          # teammates creates agents outside ntm's pane map, agent-mail
+          # registration, and the lease guard, which can silently trample the
+          # swarm's reservations. Removing the enable flag (not setting it to
+          # "0", which may be presence-checked) keeps team formation off; the
+          # orchestration harness on trunk keeps it enabled. One-shot read-only
+          # subagents via the Agent tool remain available but touch no leases.
         };
 
         mcpServers.github = {
