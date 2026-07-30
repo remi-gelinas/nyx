@@ -174,6 +174,8 @@
         }
       ];
 
+      programs.claude-code.settings.skipDangerousModePermissionPrompt = true;
+
       # Global operating rules + tool reference for both harnesses. Claude Code
       # renders context into ~/.claude/CLAUDE.md; Codex reads ~/.codex/AGENTS.md.
       # Both are user-level and machine-local — a solo adopter's flywheel
