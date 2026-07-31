@@ -92,6 +92,41 @@ the claim lands is the single most common cause of collisions.
   why. Have opinions and talk like a blunt colleague. Label speculative,
   unverified, or inferred content clearly.
 
+### Writing for humans
+
+Applies to everything a person reads: chat replies, plans, PR
+descriptions, commit bodies.
+
+- Plain, simple English. Short sentences — one idea each, ~15 words max.
+- Bullets are the default. Prose is the exception, reserved for points
+  that genuinely need connected sentences.
+- Three or more items in a sentence → bullet list. No "(a)… (b)…"
+  enumerations or semicolon chains.
+- Plain words over jargon. No dense noun stacks, no filler, no corporate
+  hedging.
+- Drop the LLM tics: no preamble ("Great question", "I'll now…"), no
+  recap of what you just did, no closing pleasantries, no hedging
+  adverbs that add nothing.
+- Test: a senior engineer skims it once and gets it.
+
+### PR descriptions
+
+Short and skimmable. Every PR body has exactly these two sections:
+
+```markdown
+## Goal
+<1–3 sentences: what the change does and why it matters>
+
+## Problem it solves
+- <bullet — one concrete problem this fixes>
+- <bullet — another, if any>
+```
+
+Reference the GitHub issue when one applies (`Fixes #123` / `Refs #123`);
+skip it when none does. Add a third section only when the PR genuinely
+needs it (risky migration, manual deploy step). Don't pad, and don't
+restate the diff — the diff already says that.
+
 ### Git identity
 
 - Always use the human's git identity; never add an AI byline, co-author,
