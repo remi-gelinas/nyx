@@ -41,6 +41,20 @@
     {
       home.packages = [ dcg ];
 
+      # dcg's end-to-end evaluation budget defaults to 200ms; full evaluation
+      # on this machine measures 100-290ms (cold start ~290ms), so under swarm
+      # load agents constantly hit the deadline and get punted to a manual
+      # confirmation prompt — which stalls an autonomous pane indefinitely.
+      # 1500ms is upstream's own troubleshooting recipe; deadline exhaustion
+      # still resolves INDETERMINATE (ask), never a silent allow. Config file
+      # over DCG_HOOK_TIMEOUT_MS because hooks run as bare subprocesses that
+      # inherit no shell env; dcg never writes its own config, so a store
+      # symlink is safe.
+      xdg.configFile."dcg/config.toml".text = ''
+        [general]
+        hook_timeout_ms = 1500
+      '';
+
       # dcg reads the pending Bash command from the PreToolUse JSON on stdin
       # and emits its own permissionDecision JSON; a destructive command comes
       # back as a deny (e.g. ruleId core.git:reset-hard). The harness owns the
