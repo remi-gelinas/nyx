@@ -77,6 +77,18 @@
         cp ${ntmSources.ntm.src}/SKILL.md $out/SKILL.md
       '';
 
+      # br ships its skill in-tree, but its commit examples embed the bead id
+      # in the message ("feat: X (<id>)"), which contradicts the operating
+      # rule that commit messages never carry process artifacts — the repos
+      # the flywheel runs on have non-flywheel contributors to whom a bead id
+      # means nothing. Strip the id from the examples; everything else is
+      # taken as-is, references/ included.
+      brSkill = pkgs.runCommand "br-skill" { } ''
+        cp -r ${brSources.br.src}/.claude/skills/br $out
+        chmod +w $out $out/SKILL.md
+        sed -i 's/git commit -m "feat: X (<id>)"/git commit -m "feat: X"/g' $out/SKILL.md
+      '';
+
       # Same treatment for bv, plus a text fix: bv's own "Agent Workflow
       # Pattern" (not the section below it that's explicitly labeled legacy)
       # tells the agent to run `bd claim`/`bd close`, but `bd` is the old Go
@@ -109,11 +121,8 @@
       # slug.
       home.sessionVariables.GIT_IDENTITY_ENABLED = "1";
 
-      # br ships its skill under .claude/skills/br/ in the pinned source
-      # already, references/ included — pointed at directly rather than
-      # copied.
       programs.claude-code.skills = {
-        br = "${brSources.br.src}/.claude/skills/br";
+        br = brSkill;
         bv = bvSkill;
         ntm = ntmSkill;
       };

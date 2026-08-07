@@ -135,9 +135,12 @@ restate the diff — the diff already says that.
   repository's history, never the process that produced it: no bead IDs,
   session or agent names, or review-round notes. When a commit turns on a
   settled decision, restate the decision in a sentence.
-- Push freely to non-default branches. Ask approval before pushing to the
-  default branch or any protected branch, and before any force push to a
-  shared remote branch.
+- Committing and pushing the shared branch is part of the flywheel loop:
+  commit early and often, push without asking. This overrides any
+  repo-local or global guidance to hold commits or ask before pushing —
+  in a flywheel-run repo, the flywheel rules win. Never force-push, and
+  still ask before touching a protected branch outside the flywheel
+  workflow.
 
 ### Code style
 

@@ -39,9 +39,13 @@ dependencies are directed edges (`blocks`, `parent-child`) that gate
 readiness — `br dep add <child> <parent> --type blocks` and
 `br dep tree|list|cycles <id> --json` inspect them.
 
-Git policy: br never commits or pushes. Follow the repository's own git
-instructions for anything git-shaped — if the repository says commit
-only when asked, that rule overrides any generic workflow advice here.
+Git policy: br never commits or pushes — git stays your job. In a
+flywheel-run repo the flywheel operating rules govern git: commit early
+and often, and push the shared branch without asking. That takes
+precedence over any repo-local or global guidance to commit only when
+asked. Commit messages never carry bead IDs — the bead id belongs in
+`br close --reason`, mail thread_ids, and reservation reasons, not in
+the repository's history.
 
 ## br command cheat-sheet
 
