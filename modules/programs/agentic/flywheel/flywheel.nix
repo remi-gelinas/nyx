@@ -229,6 +229,24 @@
         "am"
       ];
 
+      # Every pane shows its swarm identity at a glance: the statusline
+      # command inherits the claude process env, and the launch wrapper put
+      # AGENT_NAME there. ntm's own pane titles are a fixed session__cc_N
+      # convention, so this is the surface that can carry the agent-mail
+      # name. Outside a swarm it degrades to the model name alone.
+      programs.claude-code.settings.statusLine = {
+        type = "command";
+        command = "${pkgs.writeShellScript "flywheel-statusline" ''
+          input=$(cat)
+          model=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.model.display_name // .model.id // ""' 2>/dev/null)
+          if [ -n "$AGENT_NAME" ] && [ "$AGENT_NAME" != "$(id -un)" ]; then
+            printf '⛭ %s · %s' "$AGENT_NAME" "$model"
+          else
+            printf '%s' "$model"
+          fi
+        ''}";
+      };
+
       programs.claude-code.settings.hooks.SessionStart = [
         {
           matcher = "compact";
