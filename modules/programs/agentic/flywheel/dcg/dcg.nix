@@ -41,18 +41,20 @@
     {
       home.packages = [ dcg ];
 
-      # dcg's end-to-end evaluation budget defaults to 200ms; full evaluation
-      # on this machine measures 100-290ms (cold start ~290ms), so under swarm
-      # load agents constantly hit the deadline and get punted to a manual
-      # confirmation prompt — which stalls an autonomous pane indefinitely.
-      # 1500ms is upstream's own troubleshooting recipe; deadline exhaustion
-      # still resolves INDETERMINATE (ask), never a silent allow. Config file
-      # over DCG_HOOK_TIMEOUT_MS because hooks run as bare subprocesses that
-      # inherit no shell env; dcg never writes its own config, so a store
-      # symlink is safe.
+      # dcg's end-to-end evaluation budget defaults to 200ms; idle
+      # measurements on this machine are 80-110ms warm and ~290ms cold, but
+      # under swarm load (many agents evaluating concurrently) even 1500ms
+      # was exhausted in practice, and exhaustion punts to a manual
+      # confirmation prompt that stalls an autonomous pane indefinitely.
+      # 3000ms matches upstream's careful-company preset. The budget is a
+      # ceiling, not a delay — fast evaluations return immediately — and
+      # exhaustion still resolves INDETERMINATE (ask), never a silent allow.
+      # Config file over DCG_HOOK_TIMEOUT_MS because hooks run as bare
+      # subprocesses that inherit no shell env; dcg never writes its own
+      # config, so a store symlink is safe.
       xdg.configFile."dcg/config.toml".text = ''
         [general]
-        hook_timeout_ms = 1500
+        hook_timeout_ms = 3000
       '';
 
       # dcg reads the pending Bash command from the PreToolUse JSON on stdin
