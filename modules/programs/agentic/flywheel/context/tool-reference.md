@@ -7,12 +7,14 @@ every session while the flywheel harness is active.
 
 Your agent identity is the name ntm assigned you — the one in the "You
 are agent <name>" line of your instructions; ntm has already registered
-you with agent-mail under it, so no `register_agent` call or `AGENT_NAME`
-export is needed, and the lease guard auto-derives it from your tmux pane
-at commit time. The one place you must supply it yourself is br: it has
-no way to know your name, so pass `--actor <your agent name>` on every
-mutating br call (`create`/`update`/`close`). Unset, br attributes
-everything to the literal "assistant" and per-agent history collapses.
+you with agent-mail under it, and `AGENT_NAME` was exported into your
+environment at launch, so git commits satisfy the lease guard without
+any setup. Never edit `.git/hooks/*` or wrap the guard's hooks — the
+chain-runner executes `pre-commit.orig`, so fronting or backing up
+hooks creates recursion. The one place you must supply identity
+yourself is br: pass `--actor <your agent name>` on every mutating br
+call (`create`/`update`/`close`). Unset, br attributes everything to
+the literal "assistant" and per-agent history collapses.
 
 ## br + bv (issue tracking)
 

@@ -96,6 +96,10 @@
       # Subcommands take no --model flag, so pass them through untouched. No
       # --agent injection: the lead role left with the orchestration stack.
       programs.fish.functions.claude = ''
+        # In an ntm pane, export the swarm identity before launch so git
+        # commits inherit AGENT_NAME for the lease guard (helper ships with
+        # the flywheel aspect; no-op elsewhere).
+        functions -q flywheel-agent-env; and flywheel-agent-env
         set -l passthrough agents auth auto-mode doctor gateway install mcp plugin plugins project setup-token ultrareview update upgrade
         if test (count $argv) -gt 0; and contains -- $argv[1] $passthrough
           command claude $argv

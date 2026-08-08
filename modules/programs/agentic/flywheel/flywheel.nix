@@ -9,35 +9,38 @@
       databaseUrl = "sqlite+aiosqlite:///${storageRoot}/storage.sqlite3";
       mcpUrl = "http://127.0.0.1:8765/mcp/";
 
-      # The lease guard reads AGENT_NAME from the commit env, but ntm assigns
-      # per-pane identity in its own table and never exports it (confirmed by
-      # spawning: pane 1 registered as an agent name, tmux env carried none of
-      # it — and tmux session env is shared, so it structurally can't hold a
-      # distinct name per pane). This wrapper recovers the identity from ground
-      # truth at commit time: TMUX_PANE (set per pane by tmux) looked up in
-      # `ntm mapping`'s pane->name table. It fronts the guard's chain-runner so
-      # every chained hook inherits AGENT_NAME/BR_ACTOR. Outside a swarm pane
-      # it falls back to the git author: the hook refuses ALL commits without
-      # AGENT_NAME, and a human committer holds no leases under that name, so
-      # they pass unless they touch a file an agent has reserved — which is
-      # exactly when they should be stopped too.
-      identityWrapper = pkgs.writeShellScript "flywheel-precommit-identity" ''
-        # flywheel-identity-wrapper
-        if [ -z "$AGENT_NAME" ] && [ -n "$TMUX_PANE" ] && command -v ntm >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then
-          _session=$(tmux display-message -p '#{session_name}' 2>/dev/null)
-          if [ -n "$_session" ]; then
-            _name=$(ntm mapping --session "$_session" 2>/dev/null | ${pkgs.gawk}/bin/awk -v p="$TMUX_PANE" '$3==p{print $1; exit}')
-            if [ -n "$_name" ]; then
-              AGENT_NAME="$_name"; export AGENT_NAME
-              [ -z "$BR_ACTOR" ] && { BR_ACTOR="$_name"; export BR_ACTOR; }
-            fi
-          fi
-        fi
-        if [ -z "$AGENT_NAME" ]; then
-          _author=$(git config user.name 2>/dev/null)
-          [ -n "$_author" ] && { AGENT_NAME="$_author"; export AGENT_NAME; }
-        fi
-        exec "$(dirname "$0")/pre-commit.flywheel-inner" "$@"
+      # The lease guard's hook reads AGENT_NAME strictly from the commit env
+      # (exit 2 without it), but ntm assigns per-pane identity in its own
+      # table and never exports it. Identity therefore has to be derived when
+      # the AGENT PROCESS starts — the claude/codex launch wrappers call this
+      # and every git commit inherits the env. Fronting the installed hook
+      # with a wrapper instead is unsalvageable: the guard's chain-runner
+      # unconditionally executes `pre-commit.orig`, so the first reinstall
+      # (agents can call install_precommit_guard at any time) backs the
+      # wrapper up into the chain and wrapper→chain-runner→.orig recurses —
+      # every passing commit spawned an unbounded process tree that starved
+      # the machine and the agent-mail DB. The brief poll covers the race
+      # with ntm registering the pane just after spawn; outside tmux it
+      # returns immediately, and the interactive-shell fallback (username)
+      # covers human commits, which then only block on another agent's lease.
+      # The poll is capped at 5s because `ntm mapping` cannot distinguish a
+      # manual tmux session from a not-yet-registered swarm pane (both report
+      # zero agents, exit 0) — a manual-tmux claude launch pays at most that.
+      agentEnvFunction = ''
+        if set -q TMUX_PANE; and command -q ntm; and command -q tmux
+          set -l session (tmux display-message -p '#{session_name}' 2>/dev/null)
+          if test -n "$session"
+            for _ in (seq 10)
+              set -l name (ntm mapping --session $session 2>/dev/null | ${pkgs.gawk}/bin/awk -v p=$TMUX_PANE '$3==p{print $1; exit}')
+              if test -n "$name"
+                set -gx AGENT_NAME $name
+                set -q BR_ACTOR; or set -gx BR_ACTOR $name
+                return 0
+              end
+              sleep 0.5
+            end
+          end
+        end
       '';
 
       # Harvested from post_compact_reminder's installer (the script it embeds
@@ -169,17 +172,43 @@
           echo "ensure_project failed — is the mcp-agent-mail service running? The lease guard cannot attribute this repo's archive until it succeeds. Aborting."
           return 1
         end
-        am guard install $PWD $PWD
-        # Front the guard's chain-runner with the identity wrapper so
-        # AGENT_NAME auto-derives from the tmux pane. Re-wrap whenever the
-        # current hook isn't ours (guard install regenerates it on re-runs).
-        set -l hook .git/hooks/pre-commit
-        if test -f $hook; and not grep -q flywheel-identity-wrapper $hook
-          mv $hook $hook.flywheel-inner
-          cp ${identityWrapper} $hook
-          chmod +x $hook
+        # Purge artifacts of the retired hook-fronting approach BEFORE the
+        # install: a leftover wrapper at pre-commit would be backed up into
+        # pre-commit.orig, which the chain-runner executes on every commit —
+        # and a wrapper or second chain-runner reachable from .orig recurses
+        # (wrapper -> chain-runner -> .orig -> wrapper ...), spawning an
+        # unbounded process tree on every passing commit. Only files that are
+        # ours are touched; a genuine user hook backed up in .orig survives.
+        for f in .git/hooks/pre-commit .git/hooks/pre-commit.orig .git/hooks/pre-commit.flywheel-inner .git/hooks/pre-push.orig .git/hooks/pre-push.flywheel-inner
+          if test -f $f; and grep -q 'flywheel-identity-wrapper' $f
+            rm $f
+          else if test -f $f; and string match -q '*.orig' -- $f; and grep -q 'mcp-agent-mail chain-runner' $f
+            rm $f
+          else if test -f $f; and string match -q '*.flywheel-inner' -- $f
+            rm $f
+          end
         end
-        echo "Board, agent-mail project, and lease guard ready. Agent identity auto-derives from the tmux pane; no per-pane AGENT_NAME export needed."
+        am guard install $PWD $PWD
+        echo "Board, agent-mail project, and lease guard ready. Agent identity is exported at claude/codex launch; the stock guard hooks run untouched."
+      '';
+
+      programs.fish.functions.flywheel-agent-env = agentEnvFunction;
+
+      # codex has no launch wrapper of its own (claude's lives in
+      # claude-code.nix and calls the same helper); without this a codex
+      # pane's commits carry no AGENT_NAME and the guard refuses them.
+      programs.fish.functions.codex = ''
+        flywheel-agent-env
+        command codex $argv
+      '';
+
+      # Human fallback: the guard hook hard-refuses any commit without
+      # AGENT_NAME. Interactive shells get the username; agent panes override
+      # it at claude/codex launch. A human holds no leases under this name,
+      # so their commits pass unless they touch a file an agent has reserved
+      # — which is exactly when they should be stopped too.
+      programs.fish.interactiveShellInit = ''
+        set -q AGENT_NAME; or set -gx AGENT_NAME (id -un)
       '';
 
       # The bd allows vanished with the beads module; these are the flywheel
