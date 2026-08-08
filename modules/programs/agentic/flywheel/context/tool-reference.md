@@ -65,9 +65,11 @@ the repository's history.
   never automatic; br has no daemon, no hooks, no auto-commit.
 - `--format toon` on any command for token-optimized output when
   context is tight.
-- Session end: `git pull --rebase`; `br sync --flush-only`; `git add
-  .beads/`; commit; push — git stays the agent's job throughout; br
-  only ever touches `.beads/`.
+- Session end: `git pull --rebase`; `br sync --flush-only`; then commit
+  and push code changes. NEVER commit `.beads/` — the board is
+  machine-local swarm state, excluded via `.git/info/exclude`; the
+  repo's other contributors don't use the flywheel and must never see
+  bead artifacts.
 
 ## bv --robot-* reference
 

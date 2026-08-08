@@ -77,16 +77,22 @@
         cp ${ntmSources.ntm.src}/SKILL.md $out/SKILL.md
       '';
 
-      # br ships its skill in-tree, but its commit examples embed the bead id
-      # in the message ("feat: X (<id>)"), which contradicts the operating
-      # rule that commit messages never carry process artifacts — the repos
-      # the flywheel runs on have non-flywheel contributors to whom a bead id
-      # means nothing. Strip the id from the examples; everything else is
-      # taken as-is, references/ included.
+      # br ships its skill in-tree, but two of its habits contradict the
+      # operating rules on repos with non-flywheel contributors: commit
+      # examples embed the bead id in the message ("feat: X (<id>)"), and the
+      # workflow commits `.beads/` into the repo — here the board is
+      # machine-local and flywheel-init excludes it via .git/info/exclude.
+      # Strip the id and the `git add .beads/` steps from the examples;
+      # everything else is taken as-is, references/ included.
       brSkill = pkgs.runCommand "br-skill" { } ''
         cp -r ${brSources.br.src}/.claude/skills/br $out
         chmod +w $out $out/SKILL.md
-        sed -i 's/git commit -m "feat: X (<id>)"/git commit -m "feat: X"/g' $out/SKILL.md
+        sed -i \
+          -e 's/git commit -m "feat: X (<id>)"/git commit -m "feat: X"/g' \
+          -e 's|git add .beads/ && git commit -m "Update issues"|: # .beads/ is git-excluded on this machine; never commit it|g' \
+          -e 's|you must `git add .beads/ && git commit`|`.beads/` is git-excluded here; never commit it|' \
+          -e 's|git add .beads/ && ||g' \
+          $out/SKILL.md
       '';
 
       # Same treatment for bv, plus a text fix: bv's own "Agent Workflow
@@ -137,9 +143,9 @@
       # tool call auto-creates the DB row: only ensure_project writes the
       # archive's project.json, and without it the guard hook cannot attribute
       # the archive to this repo and silently skips enforcement. All local
-      # state — `.beads/` is gitignorable, the guard in `.git/hooks/`.
-      # `guard install` takes PROJECT and REPO positionally (both the absolute
-      # repo path).
+      # state — `.beads/` is excluded via .git/info/exclude, the guard in
+      # `.git/hooks/`. `guard install` takes PROJECT and REPO positionally
+      # (both the absolute repo path).
       programs.fish.functions.flywheel-init = ''
         set -lx STORAGE_ROOT ${storageRoot}
         set -lx DATABASE_URL ${databaseUrl}
@@ -150,6 +156,13 @@
         end
         if not test -d .beads
           br init
+        end
+        # The board is machine-local swarm state: every agent shares this one
+        # checkout, and the repo's non-flywheel contributors should never see
+        # bead artifacts. .git/info/exclude keeps it out of git without
+        # touching the shared .gitignore.
+        if test -d .git; and not grep -qxF '.beads/' .git/info/exclude 2>/dev/null
+          echo '.beads/' >> .git/info/exclude
         end
         set -l resp (curl -s -m 10 -X POST ${mcpUrl} -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"'$PWD'"}}}')
         if test -z "$resp"; or string match -q '*"isError":true*' -- "$resp"
