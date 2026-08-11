@@ -276,6 +276,11 @@
       # than not launching it.
       programs.fish.functions.flywheel-openrouter-env = ''
         if not string match -q '*/*' -- $argv[1]
+          # Clear, don't just skip: set -gx from an earlier OpenRouter launch
+          # persists in the shell, and a later seat-model launch would
+          # silently inherit the gateway.
+          set -e ANTHROPIC_BASE_URL
+          set -e ANTHROPIC_AUTH_TOKEN
           return 0
         end
         set -l keyfile ~/.config/openrouter/key

@@ -110,7 +110,23 @@
           for a in $argv
             string match -qr -- '^--model=(?<m>.+)$' $a; and set model $m
           end
-          if not string match -qr -- '^--model(=.*)?$' $argv
+          # Models with verified 1M windows get the [1m] suffix: claude books
+          # ~200k for ids it doesn't recognize, and the suffix corrects the
+          # context gauge and native auto-compact, stripped before the request
+          # leaves. ntm's spec charset can't carry brackets, so it lands here.
+          # (Adjacent-string quoting — "$model"'[1m]' — because [1m] inside
+          # the same quotes is fish list-index syntax.)
+          set -l million moonshotai/kimi-k3
+          if contains -- $model $million
+            set -l suffixed "$model"'[1m]'
+            if test -n "$i"
+              set argv[(math $i + 1)] $suffixed
+            else if string match -qr -- '^--model=' $argv
+              set argv (string replace -- "--model=$model" "--model=$suffixed" $argv)
+            else
+              set -a extra --model $suffixed
+            end
+          else if not string match -qr -- '^--model(=.*)?$' $argv
             set -a extra --model $model
           end
           # Slash-bearing model ids are OpenRouter slugs; the helper points
