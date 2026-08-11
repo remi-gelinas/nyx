@@ -144,6 +144,13 @@
               url = "${mcpUrl}"
             ''
           }
+          features=${
+            pkgs.writeText "codex-features.toml" ''
+
+              [features]
+              fast_mode = false
+            ''
+          }
           [ -L "$cfg" ] && run rm -- "$cfg"
           run mkdir -p "$HOME/.codex"
           if [ ! -e "$cfg" ]; then
@@ -152,6 +159,13 @@
             run sh -c 'cat "$1" >> "$2"' _ "$snippet" "$cfg"
           elif ${pkgs.gnugrep}/bin/grep -q '127.0.0.1:8765/api/' "$cfg"; then
             run ${pkgs.gnused}/bin/sed -i 's|127.0.0.1:8765/api/|127.0.0.1:8765/mcp/|' "$cfg"
+          fi
+          # fast_mode is a codex feature flag (independent of reasoning
+          # effort) that defaults on; swarm agents should run deliberate.
+          # Seed the disable only when the key is absent so a hand-run
+          # `codex features enable fast_mode` sticks.
+          if ! ${pkgs.gnugrep}/bin/grep -q 'fast_mode' "$cfg"; then
+            run sh -c 'cat "$1" >> "$2"' _ "$features" "$cfg"
           fi
         '';
       }

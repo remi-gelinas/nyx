@@ -57,11 +57,12 @@
       # fresh agents pull work from the bead frontier.
       #
       # [agents]: ntm's compiled-in codex template defaults
-      # model_reasoning_effort to "ultra" (GPT-5.6's speed tier), and that
-      # explicit -c flag overrides the sol/high defaults in ~/.codex/
-      # config.toml on every spawn. Same template as upstream with the
-      # effort default set to high; an explicit --cod=N:model:effort spec
-      # still wins.
+      # model_reasoning_effort to "ultra", and that explicit -c flag
+      # overrides the sol/high defaults in ~/.codex/config.toml on every
+      # spawn. Same template as upstream with the effort default set to
+      # high; an explicit --cod=N:model:effort spec still wins. (codex's
+      # separate fast_mode feature flag is disabled via the codex config
+      # seed in agent-mail.nix — effort and fast are independent knobs.)
       home.activation.ntmConfigSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         cfg="$HOME/.config/ntm/config.toml"
         recovery=${
