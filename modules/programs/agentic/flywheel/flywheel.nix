@@ -30,7 +30,7 @@
         if set -q TMUX_PANE; and command -q ntm; and command -q tmux
           set -l session (tmux display-message -p '#{session_name}' 2>/dev/null)
           if test -n "$session"
-            for _ in (seq 10)
+            for i in (seq 10)
               set -l name (ntm mapping --session $session 2>/dev/null | ${pkgs.gawk}/bin/awk -v p=$TMUX_PANE '$3==p{print $1; exit}')
               if test -n "$name"
                 set -gx AGENT_NAME $name
