@@ -269,7 +269,10 @@
         end
         set -gx ANTHROPIC_BASE_URL https://openrouter.ai/api
         set -gx ANTHROPIC_AUTH_TOKEN (head -n1 $keyfile | string trim)
+        # set -e returns 4 when the variable was already unset, and the
+        # caller treats any nonzero status as abort-the-launch — end true.
         set -e ANTHROPIC_API_KEY
+        return 0
       '';
 
       # codex has no launch wrapper of its own (claude's lives in
