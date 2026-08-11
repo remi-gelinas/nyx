@@ -98,6 +98,22 @@
         exit 0
       '';
 
+      # The launch wrapper exports AGENT_NAME into the process, but the model
+      # never sees env vars — an agent that doesn't know its name calls
+      # register_agent bare and mints a fresh identity, which then splits it
+      # from its own reservations (held under the new name, commits under
+      # AGENT_NAME) until the guard blocks it on its own leases. SessionStart
+      # stdout is injected into context, so this makes the identity line the
+      # operating rules reference actually exist. Same gates as the stop
+      # hook: swarm identities only, fail-open.
+      sessionIdentityHook = pkgs.writeShellScript "flywheel-session-identity" ''
+        INPUT=$(cat)
+        [ -z "$AGENT_NAME" ] && exit 0
+        [ "$AGENT_NAME" = "$(id -un)" ] && exit 0
+        printf 'You are agent %s — the identity ntm assigned this pane. agent-mail already has this name registered and AGENT_NAME/BR_ACTOR are exported in your environment. Use exactly this name everywhere: register_agent (an idempotent profile update — pass name=%s), every mail call, file reservations, and br --actor. Never omit the name or let one be auto-generated.\n' "$AGENT_NAME" "$AGENT_NAME"
+        exit 0
+      '';
+
       # Harvested from post_compact_reminder's installer (the script it embeds
       # in render_hook_script, default TEMPLATE_DEFAULT message) rather than
       # running the installer: shebang comes from writeShellScript, jq is
@@ -335,6 +351,14 @@
             {
               type = "command";
               command = "${postCompactReminder}";
+            }
+          ];
+        }
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${sessionIdentityHook}";
             }
           ];
         }

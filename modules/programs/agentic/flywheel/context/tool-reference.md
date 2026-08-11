@@ -5,11 +5,15 @@ operator context (delivered to `~/.claude/CLAUDE.md` and
 `~/.codex/AGENTS.md`), not committed into any project — it applies to
 every session while the flywheel harness is active.
 
-Your agent identity is the name ntm assigned you — the one in the "You
-are agent <name>" line of your instructions; ntm has already registered
-you with agent-mail under it, and `AGENT_NAME` was exported into your
+Your agent identity is the name ntm assigned you — the "You are agent
+<name>" line injected at session start; ntm has already registered you
+with agent-mail under it, and `AGENT_NAME` was exported into your
 environment at launch, so git commits satisfy the lease guard without
-any setup. Never edit `.git/hooks/*` or wrap the guard's hooks — the
+any setup. Use exactly that name in every mail call, and if you call
+`register_agent`, always pass `name=<your name>` (an idempotent profile
+update) — a bare call mints a second identity whose reservations will
+not match your commits. Never edit `.git/hooks/*` or wrap the guard's
+hooks — the
 chain-runner executes `pre-commit.orig`, so fronting or backing up
 hooks creates recursion. The one place you must supply identity
 yourself is br: pass `--actor <your agent name>` on every mutating br
