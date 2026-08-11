@@ -105,8 +105,19 @@
           command claude $argv
         else
           set -l extra
+          set -l model claude-opus-5
+          set -l i (contains -i -- --model $argv); and set model $argv[(math $i + 1)]
+          for a in $argv
+            string match -qr -- '^--model=(?<m>.+)$' $a; and set model $m
+          end
           if not string match -qr -- '^--model(=.*)?$' $argv
-            set -a extra --model claude-opus-5
+            set -a extra --model $model
+          end
+          # Slash-bearing model ids are OpenRouter slugs; the helper points
+          # this process at OpenRouter's Anthropic-native endpoint. Abort on
+          # failure rather than launch on the wrong billing.
+          if functions -q flywheel-openrouter-env
+            flywheel-openrouter-env $model; or return 1
           end
           command claude $extra $argv
         end

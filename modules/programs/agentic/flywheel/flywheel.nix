@@ -194,6 +194,29 @@
 
       programs.fish.functions.flywheel-agent-env = agentEnvFunction;
 
+      # OpenRouter gateway switch, called by the claude launch wrapper with
+      # the model about to be requested. OpenRouter slugs carry a slash
+      # (moonshotai/kimi-k2, z-ai/glm-4.7, anthropic/claude-sonnet-5 for
+      # Claude on OpenRouter billing); plain Anthropic ids don't, and leave
+      # the Enterprise session untouched. OpenRouter's Anthropic-native
+      # endpoint means claude runs unmodified — this only points it there
+      # and presents the key, per-process. Fails loudly when the key file is
+      # missing: launching a pane on the wrong billing silently is worse
+      # than not launching it.
+      programs.fish.functions.flywheel-openrouter-env = ''
+        if not string match -q '*/*' -- $argv[1]
+          return 0
+        end
+        set -l keyfile ~/.config/openrouter/key
+        if not test -r $keyfile
+          echo "flywheel: model $argv[1] routes via OpenRouter, but $keyfile is missing (create it with the API key as its only line, chmod 600)." >&2
+          return 1
+        end
+        set -gx ANTHROPIC_BASE_URL https://openrouter.ai/api
+        set -gx ANTHROPIC_AUTH_TOKEN (head -n1 $keyfile | string trim)
+        set -e ANTHROPIC_API_KEY
+      '';
+
       # codex has no launch wrapper of its own (claude's lives in
       # claude-code.nix and calls the same helper); without this a codex
       # pane's commits carry no AGENT_NAME and the guard refuses them.

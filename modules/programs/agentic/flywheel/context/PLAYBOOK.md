@@ -78,12 +78,25 @@ converts. The transition is a scheduled work step, not an afterthought.
 ```
 ntm spawn <project> --cc=2 --cod=2      # start small; scale after a clean wave
 ```
-In each pane before work starts, identity must exist:
+Agent specs take `N:model:effort`, and flags accumulate for mixed swarms:
 ```
-export BR_ACTOR=<name> AGENT_NAME=<name>   # distinct per pane
+ntm spawn <project> --cc=4:claude-sonnet-5:high --cod=2:gpt-5.6-sol:high
 ```
-Unset, br attribution collapses to "assistant" and the lease guard fails
-commits outright. Agent names are disposable; the guide likes whimsical ones.
+Slash-bearing model ids route through OpenRouter (key file at
+`~/.config/openrouter/key`) while slashless ids stay on the Anthropic
+seat — mix freely per pane:
+```
+ntm spawn <project> --cc=2:claude-sonnet-5:high --cc=2:moonshotai/kimi-k2:high
+```
+`anthropic/claude-*` slugs are the same Claude models on OpenRouter
+billing. Give OpenRouter models the worker beads, not the subtle ones —
+tool-calling fidelity varies off-Anthropic.
+
+Identity is automatic: AGENT_NAME/BR_ACTOR export at claude/codex launch
+from the pane's ntm-assigned name, the statusline shows it
+(`⛭ Name · Model`), and the lease guard reads it at commit time. A pane
+whose statusline shows a bare model name has no identity — investigate
+before it commits.
 
 **Rate limits**: no account rotation exists here (CAAM was excluded). A
 stalled swarm mid-wave is the documented failure mode — run ~4 agents until
