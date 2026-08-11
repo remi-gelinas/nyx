@@ -43,30 +43,48 @@
         ${ntm}/bin/ntm shell fish | source
       '';
 
-      # Spawn-time "smart session recovery" builds its context (agent-mail
-      # inbox + reservations, beads, checkpoints) under a HARDCODED 5s
-      # deadline, and blowing it aborts the entire spawn ("spawn recovery
-      # canceled: context deadline exceeded") — agents never launch. The
-      # chain of MCP round-trips makes that budget unreliable, and the
-      # flywheel doesn't need spawn injection anyway: fresh agents pull work
-      # from the bead frontier. ntm's config is user-owned and ntm writes to
-      # it (`ntm config set`), so this is a seed-append like the codex
-      # config, not a store symlink: add the [recovery] section only when
-      # the file lacks one, otherwise leave the user's settings alone.
+      # Two seeded sections; ntm's config is user-owned and ntm writes to it
+      # (`ntm config set`), so these are seed-appends like the codex config,
+      # not a store symlink — each section is added only when the file lacks
+      # it, otherwise the user's settings are left alone.
+      #
+      # [recovery]: spawn-time "smart session recovery" builds its context
+      # (agent-mail inbox + reservations, beads, checkpoints) under a
+      # HARDCODED 5s deadline, and blowing it aborts the entire spawn
+      # ("spawn recovery canceled: context deadline exceeded") — agents
+      # never launch. The chain of MCP round-trips makes that budget
+      # unreliable, and the flywheel doesn't need spawn injection anyway:
+      # fresh agents pull work from the bead frontier.
+      #
+      # [agents]: ntm's compiled-in codex template defaults
+      # model_reasoning_effort to "ultra" (GPT-5.6's speed tier), and that
+      # explicit -c flag overrides the sol/high defaults in ~/.codex/
+      # config.toml on every spawn. Same template as upstream with the
+      # effort default set to high; an explicit --cod=N:model:effort spec
+      # still wins.
       home.activation.ntmConfigSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         cfg="$HOME/.config/ntm/config.toml"
-        snippet=${
+        recovery=${
           pkgs.writeText "ntm-recovery.toml" ''
 
             [recovery]
             auto_inject_on_spawn = false
           ''
         }
+        agents=${
+          pkgs.writeText "ntm-agents.toml" ''
+
+            [agents]
+            codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-5.6-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
+          ''
+        }
         run mkdir -p "$HOME/.config/ntm"
-        if [ ! -e "$cfg" ]; then
-          run install -m644 "$snippet" "$cfg"
-        elif ! ${pkgs.gnugrep}/bin/grep -q '^\[recovery\]' "$cfg"; then
-          run sh -c 'cat "$1" >> "$2"' _ "$snippet" "$cfg"
+        [ -e "$cfg" ] || run touch "$cfg"
+        if ! ${pkgs.gnugrep}/bin/grep -q '^\[recovery\]' "$cfg"; then
+          run sh -c 'cat "$1" >> "$2"' _ "$recovery" "$cfg"
+        fi
+        if ! ${pkgs.gnugrep}/bin/grep -q '^\[agents\]' "$cfg"; then
+          run sh -c 'cat "$1" >> "$2"' _ "$agents" "$cfg"
         fi
       '';
     };
