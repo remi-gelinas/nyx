@@ -64,11 +64,36 @@
         dir=$(printf '%s' "$INPUT" | ${pkgs.jq}/bin/jq -r '.cwd // empty' 2>/dev/null)
         [ -n "$dir" ] || dir=$PWD
         [ -d "$dir/.beads" ] || exit 0
-        command -v br >/dev/null 2>&1 || exit 0
-        ready=$(cd "$dir" && br ready --json 2>/dev/null | ${pkgs.jq}/bin/jq 'length' 2>/dev/null) || exit 0
-        case "$ready" in ''''''|*[!0-9]*) exit 0;; esac
+        if command -v br >/dev/null 2>&1; then
+          ready=$(cd "$dir" && br ready --json 2>/dev/null | ${pkgs.jq}/bin/jq 'length' 2>/dev/null) || ready=0
+        else
+          ready=0
+        fi
+        case "$ready" in ''''''|*[!0-9]*) ready=0;; esac
         if [ "$ready" -gt 0 ]; then
           ${pkgs.jq}/bin/jq -cn --arg n "$ready" '{decision:"block", reason:("The bead frontier has " + $n + " ready item(s); the flywheel loop is not done. Fetch your agent-mail inbox and handle anything pending, then claim the next bead per the claim protocol (br ready --json or bv --robot-next, br update --claim, announce over mail, reserve files) and work it. Stop only when the frontier is empty and your inbox is clear.")}'
+          exit 0
+        fi
+        # Frontier empty — attention-needing mail still keeps the loop
+        # alive: an ack you owe may be exactly what unblocks someone else's
+        # bead. The signal is the server's own attention views (ack-required
+        # + urgent-unread), read-only resources over loopback MCP — the CLI's
+        # --unread filter does not surface fresh mail, and the plain inbox
+        # view is recent-N, which would block forever on any mail history.
+        # Deliberately NOT counted: normal-priority FYI messages — swarms
+        # would never sleep.
+        pending=0
+        for view in ack-required urgent-unread; do
+          n=$(${pkgs.curl}/bin/curl -s -m 5 -X POST ${mcpUrl} \
+            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/read\",\"params\":{\"uri\":\"resource://views/$view/$AGENT_NAME?project=$dir\"}}" \
+            2>/dev/null | ${pkgs.jq}/bin/jq -r '.result.contents[0].text | fromjson | .count // 0' 2>/dev/null) || n=0
+          case "$n" in ''''''|*[!0-9]*) n=0;; esac
+          pending=$((pending + n))
+        done
+        if [ "$pending" -gt 0 ]; then
+          ${pkgs.jq}/bin/jq -cn --arg n "$pending" '{decision:"block", reason:("Your agent-mail inbox has " + $n + " message(s) needing attention (ack-required or urgent). Fetch your inbox, acknowledge and act on each — a blocked peer may be waiting on you. Then re-check the frontier; stop only when it is empty and nothing awaits your ack.")}'
+          exit 0
         fi
         exit 0
       '';
