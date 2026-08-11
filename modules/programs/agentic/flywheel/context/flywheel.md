@@ -41,6 +41,20 @@ The human's instructions override everything.
 - If the frontier is empty *and* you have no direct instruction, say so and
   stop. Do not invent work.
 
+## The work loop
+
+Closing a bead is the middle of your loop, not the end of your session:
+
+1. Close the bead (`br close --reason`), release your file reservations.
+2. Fetch your agent-mail inbox; answer or act on anything pending.
+3. Pull the next ready bead (`br ready --json` / `bv --robot-next`) and
+   claim it per the protocol below.
+4. Only when the frontier is empty AND your inbox is clear are you done.
+
+Do not end your turn between beads. A harness hook re-opens sessions
+that stop while ready work exists — save the round-trip and loop
+yourself.
+
 ## Claim protocol, in order
 
 1. Set the bead `in_progress` first.

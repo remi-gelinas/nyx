@@ -43,6 +43,36 @@
         end
       '';
 
+      # The flywheel loop's mechanical backstop: swarm agents finish a bead
+      # and end their turn instead of pulling the next one, and prompt-level
+      # "keep going" instructions decay with context. This Stop hook blocks
+      # the stop while the frontier still has claimable work, feeding back
+      # the loop directive. Strictly gated: swarm identities only (hooks
+      # inherit the claude process env, so AGENT_NAME set by the launch
+      # wrapper and distinct from the username marks a swarm pane), flywheel
+      # repos only (.beads/ in the session cwd), and fail-open on any error
+      # — a broken hook must never wedge a session that wants to stop. The
+      # loop terminates because the frontier drains; a stuck agent facing a
+      # non-empty frontier keeps getting nudged, which is visible on the
+      # dashboard and is the operator's cue, not a silent stall. Codex has
+      # no hook mechanism, so codex panes still stop; nudge those over
+      # ntm --robot-send.
+      stopFrontierHook = pkgs.writeShellScript "flywheel-stop-frontier" ''
+        INPUT=$(cat)
+        [ -z "$AGENT_NAME" ] && exit 0
+        [ "$AGENT_NAME" = "$(id -un)" ] && exit 0
+        dir=$(printf '%s' "$INPUT" | ${pkgs.jq}/bin/jq -r '.cwd // empty' 2>/dev/null)
+        [ -n "$dir" ] || dir=$PWD
+        [ -d "$dir/.beads" ] || exit 0
+        command -v br >/dev/null 2>&1 || exit 0
+        ready=$(cd "$dir" && br ready --json 2>/dev/null | ${pkgs.jq}/bin/jq 'length' 2>/dev/null) || exit 0
+        case "$ready" in ''''''|*[!0-9]*) exit 0;; esac
+        if [ "$ready" -gt 0 ]; then
+          ${pkgs.jq}/bin/jq -cn --arg n "$ready" '{decision:"block", reason:("The bead frontier has " + $n + " ready item(s); the flywheel loop is not done. Fetch your agent-mail inbox and handle anything pending, then claim the next bead per the claim protocol (br ready --json or bv --robot-next, br update --claim, announce over mail, reserve files) and work it. Stop only when the frontier is empty and your inbox is clear.")}'
+        fi
+        exit 0
+      '';
+
       # Harvested from post_compact_reminder's installer (the script it embeds
       # in render_hook_script, default TEMPLATE_DEFAULT message) rather than
       # running the installer: shebang comes from writeShellScript, jq is
@@ -277,6 +307,17 @@
             {
               type = "command";
               command = "${postCompactReminder}";
+            }
+          ];
+        }
+      ];
+
+      programs.claude-code.settings.hooks.Stop = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${stopFrontierHook}";
             }
           ];
         }
