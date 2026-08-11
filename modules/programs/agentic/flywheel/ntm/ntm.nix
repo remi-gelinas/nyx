@@ -79,6 +79,16 @@
             codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-5.6-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
           ''
         }
+        integrations=${
+          pkgs.writeText "ntm-integrations.toml" ''
+
+            [integrations.dcg]
+            enabled = false
+
+            [integrations.rch]
+            enabled = false
+          ''
+        }
         run mkdir -p "$HOME/.config/ntm"
         [ -e "$cfg" ] || run touch "$cfg"
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[recovery\]' "$cfg"; then
@@ -86,6 +96,16 @@
         fi
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[agents\]' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$agents" "$cfg"
+        fi
+        # ntm's dcg/rch integrations inject a CLAUDE_CODE_HOOKS env blob of
+        # nested-quoted JSON into every claude launch line. rch (remote
+        # compilation offload) is not packaged here, so its hook would invoke
+        # a missing binary on every Bash call, and dcg is already wired
+        # globally through settings.json — the injection only bloats the
+        # typed command past what panes reliably parse. Spawns with these
+        # off launch clean; with them on, panes died at the prompt.
+        if ! ${pkgs.gnugrep}/bin/grep -q '^\[integrations' "$cfg"; then
+          run sh -c 'cat "$1" >> "$2"' _ "$integrations" "$cfg"
         fi
       '';
     };
