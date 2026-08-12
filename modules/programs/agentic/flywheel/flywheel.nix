@@ -64,6 +64,11 @@
         dir=$(printf '%s' "$INPUT" | ${pkgs.jq}/bin/jq -r '.cwd // empty' 2>/dev/null)
         [ -n "$dir" ] || dir=$PWD
         [ -d "$dir/.beads" ] || exit 0
+        # Operator pause: flywheel-pause drops this sentinel so agents may
+        # finish their current bead and stop (assess-the-horizon moments,
+        # wind-downs); flywheel-resume lifts it. Without an override the
+        # loop fights any human stand-down instruction.
+        [ -e "$dir/.beads/flywheel-pause" ] && exit 0
         if command -v br >/dev/null 2>&1; then
           ready=$(cd "$dir" && br ready --json 2>/dev/null | ${pkgs.jq}/bin/jq 'length' 2>/dev/null) || ready=0
         else
@@ -264,6 +269,26 @@
       '';
 
       programs.fish.functions.flywheel-agent-env = agentEnvFunction;
+
+      # Operator switch for the stop hook's work loop: paused, agents finish
+      # their current turn and are allowed to stop even with a non-empty
+      # frontier. Run from the repo root.
+      programs.fish.functions.flywheel-pause = ''
+        if not test -d .beads
+          echo "Not a flywheel repo (no .beads/ here)."
+          return 1
+        end
+        touch .beads/flywheel-pause
+        echo "Paused: agents may stop after their current turn. flywheel-resume to lift."
+      '';
+      programs.fish.functions.flywheel-resume = ''
+        if not test -e .beads/flywheel-pause
+          echo "Not paused."
+          return 0
+        end
+        rm .beads/flywheel-pause
+        echo "Resumed: the stop hook holds agents on the loop again. Nudge idle panes (ntm --robot-send) to restart them."
+      '';
 
       # OpenRouter gateway switch, called by the claude launch wrapper with
       # the model about to be requested. OpenRouter slugs carry a slash
