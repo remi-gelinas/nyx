@@ -64,11 +64,13 @@
         dir=$(printf '%s' "$INPUT" | ${pkgs.jq}/bin/jq -r '.cwd // empty' 2>/dev/null)
         [ -n "$dir" ] || dir=$PWD
         [ -d "$dir/.beads" ] || exit 0
-        # Operator pause: flywheel-pause drops this sentinel so agents may
+        # Operator pause: flywheel-pause drops these sentinels so agents may
         # finish their current bead and stop (assess-the-horizon moments,
-        # wind-downs); flywheel-resume lifts it. Without an override the
-        # loop fights any human stand-down instruction.
+        # wind-downs); flywheel-resume lifts them. Repo-wide sentinel stops
+        # everyone; the name-scoped one stops a single agent. Without an
+        # override the loop fights any human stand-down instruction.
         [ -e "$dir/.beads/flywheel-pause" ] && exit 0
+        [ -e "$dir/.beads/flywheel-pause-$AGENT_NAME" ] && exit 0
         if command -v br >/dev/null 2>&1; then
           ready=$(cd "$dir" && br ready --json 2>/dev/null | ${pkgs.jq}/bin/jq 'length' 2>/dev/null) || ready=0
         else
@@ -272,21 +274,37 @@
 
       # Operator switch for the stop hook's work loop: paused, agents finish
       # their current turn and are allowed to stop even with a non-empty
-      # frontier. Run from the repo root.
+      # frontier. Run from the repo root. No args = the whole swarm; agent
+      # names = just those agents (everyone else keeps looping).
       programs.fish.functions.flywheel-pause = ''
         if not test -d .beads
           echo "Not a flywheel repo (no .beads/ here)."
           return 1
         end
-        touch .beads/flywheel-pause
-        echo "Paused: agents may stop after their current turn. flywheel-resume to lift."
+        if test (count $argv) -eq 0
+          touch .beads/flywheel-pause
+          echo "Paused (all agents): they may stop after their current turn. flywheel-resume to lift."
+        else
+          for n in $argv
+            touch .beads/flywheel-pause-$n
+          end
+          echo "Paused: $argv. Others keep looping. flywheel-resume $argv to lift."
+        end
       '';
       programs.fish.functions.flywheel-resume = ''
-        if not test -e .beads/flywheel-pause
+        if test (count $argv) -gt 0
+          for n in $argv
+            rm -f .beads/flywheel-pause-$n
+          end
+          echo "Resumed: $argv. Nudge their panes (ntm --robot-send) to restart them."
+          return 0
+        end
+        set -l sentinels .beads/flywheel-pause*
+        if test (count $sentinels) -eq 0
           echo "Not paused."
           return 0
         end
-        rm .beads/flywheel-pause
+        rm $sentinels
         echo "Resumed: the stop hook holds agents on the loop again. Nudge idle panes (ntm --robot-send) to restart them."
       '';
 

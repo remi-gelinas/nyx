@@ -101,8 +101,9 @@ before it commits.
 A stop hook holds agents on the work loop while the frontier has ready
 beads or attention-needing mail. To wind a swarm down deliberately
 (assess the horizon, end of day), run `flywheel-pause` in the repo —
-agents finish their current turn and stop; `flywheel-resume` re-arms
-the loop (nudge idle panes to restart them).
+agents finish their current turn and stop; `flywheel-pause <Name>…`
+stops just those agents while the rest keep looping. `flywheel-resume
+[Name…]` re-arms the loop (nudge idle panes to restart them).
 
 **Rate limits**: no account rotation exists here (CAAM was excluded). A
 stalled swarm mid-wave is the documented failure mode — run ~4 agents until
