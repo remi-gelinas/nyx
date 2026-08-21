@@ -130,6 +130,19 @@
           else if not string match -qr -- '^--model(=.*)?$' $argv
             set -a extra --model $model
           end
+          # Windows that are neither ~200k nor 1M can't ride the suffix: [1m]
+          # is a fixed literal mapping to the context-1m beta, and claude
+          # hardcodes 1e6 for it. CLAUDE_CODE_MAX_CONTEXT_TOKENS is the
+          # numeric equivalent, honoured only for ids that don't start with
+          # claude- — i.e. exactly the third-party OpenRouter set. Clear it on
+          # every other launch: set -gx from an earlier pane persists in the
+          # shell and would silently misreport the next model's window.
+          switch $model
+            case 'x-ai/grok-4.6'
+              set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 500000
+            case '*'
+              set -e CLAUDE_CODE_MAX_CONTEXT_TOKENS
+          end
           # Slash-bearing model ids are OpenRouter slugs; the helper points
           # this process at OpenRouter's Anthropic-native endpoint. Abort on
           # failure rather than launch on the wrong billing.
