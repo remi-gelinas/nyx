@@ -55,8 +55,10 @@ decision that must survive goes into the beads.
 
 **Conversion.** One session converts the plan into beads: self-contained
 (an agent must never need the plan), acceptance criteria and test
-obligations on every bead, dependencies wired with `br dep add`. Batch
-via markdown/JSON import if the plan is large.
+obligations on every bead, dependencies wired with `br dep add`. Attach
+children to epics with `--parent` or `--type parent-child`, never
+`--type blocks` (`blocks` hides the child from `br ready` until the
+epic closes). Batch via markdown/JSON import if the plan is large.
 
 **Polish 4–6 rounds — "check your beads N times, implement once."** This is
 the guide's most-repeated advice and its author's named under-investment.
@@ -113,7 +115,8 @@ you've seen how the seat holds, and stagger launches.
 
 Check in every 10–30 minutes; the guide's whole human role is this loop:
 
-- `bv --robot-triage` — the mega-command: counts, top picks, blockers.
+- `bv --robot-triage` — overview: counts, top picks, blockers. Nested
+  under `.triage`. Not the claimable set — that is `br ready --json`.
 - `br list --status in_progress --json` — who claims what.
 - `ntm activity` / `ntm dashboard` — pane states at a glance.
 - Agent looks confused or just compacted? Send the guide's most-used

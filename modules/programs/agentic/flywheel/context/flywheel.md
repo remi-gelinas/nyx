@@ -38,6 +38,10 @@ The human's instructions override everything.
 - When operating autonomously from the board: pull work from the computed
   frontier, never by hand-picking a bead you like — `br ready --json` for
   the raw frontier, `bv --robot-next` for the viewer's pick.
+  `--robot-triage` is an overview, not the frontier.
+- Attach work to an epic with `--parent` or `--type parent-child`.
+  `blocks` is a prerequisite, not membership. A child blocked on its
+  epic will not appear in `br ready`.
 - If the frontier is empty *and* you have no direct instruction, say so and
   stop. Do not invent work.
 

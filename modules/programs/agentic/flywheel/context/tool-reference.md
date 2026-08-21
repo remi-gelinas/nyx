@@ -29,21 +29,25 @@ create, update, and close it. **Never run bare `bv`** — with no flags
 it drops into an interactive TUI that blocks the session; always pass a
 `--robot-*` flag.
 
-`--robot-triage` is the single entry point for "what should I do now":
-it returns `quick_ref`, `recommendations`, `quick_wins`,
-`blockers_to_clear`, `project_health`, and `commands` in one payload.
-Only `quick_ref.top_picks` and any item carrying a non-empty
-`claim_command` are actually claimable right now — `recommendations`
-can list work that is still blocked, so don't claim off that list
-without checking.
+The claimable frontier is `br ready --json`: open, unblocked, not
+deferred. `bv --robot-next` picks one item from that set and emits a
+`claim_command`. `--robot-triage` is an overview, not a work queue.
+Its payload is nested under `.triage`. `.triage.recommendations` and
+`.triage.quick_wins` include blocked and non-ready work — do not
+claim off those lists. Claim only an id that `br ready --json`
+returns.
 
 5-step workflow: `br ready --json` (or `bv --robot-next`) to find work
 → `br update --actor "$ACTOR" <id> --status in_progress --claim` →
 work → self-review → `br close --actor "$ACTOR" <id> --reason "..."`.
-Priority runs 0 (highest) through 4; type is one of epic/task/bug/chore;
-dependencies are directed edges (`blocks`, `parent-child`) that gate
-readiness — `br dep add <child> <parent> --type blocks` and
-`br dep tree|list|cycles <id> --json` inspect them.
+Priority runs 0 (highest) through 4; type is one of epic/task/bug/chore.
+
+Attach a bead to an epic with `--parent <epic-id>` on create, or
+`br dep add <child> <epic> --type parent-child`. That is hierarchy.
+`br dep add <issue> <blocker> --type blocks` is a prerequisite: the
+issue waits until the blocker closes. Never attach epic children with
+`blocks` — they vanish from `br ready` until the epic itself closes.
+Scope ready work under an epic with `br ready --epic <id> --json`.
 
 Git policy: br never commits or pushes — git stays your job. In a
 flywheel-run repo the flywheel operating rules govern git: commit early
@@ -60,11 +64,13 @@ the repository's history.
   `update`, `close` all require it. Set `ACTOR` once to your assigned
   agent name (the "You are agent <name>" line), not to `BR_ACTOR` —
   nothing exports that; the name in your instructions is the source.
-- `br create --actor "$ACTOR" "Title" -p 1 -t task [--assignee X
-  --labels a,b --description "..."]`
+- `br create --actor "$ACTOR" "Title" -p 1 -t task [--parent <epic-id>
+  --assignee X --labels a,b --description "..."]`
 - `br update --actor "$ACTOR" <id> --status in_progress --claim`
 - `br ready --json`
-- `br dep add <child> <parent> [--type blocks]`
+- `br ready --epic <id> --json`
+- `br dep add <child> <epic> --type parent-child`
+- `br dep add <issue> <blocker> --type blocks`
 - `br dep tree|list|cycles <id> --json`
 - `br close --actor "$ACTOR" <id> --reason "..."`
 - `br sync --flush-only|--import-only|--status` — sync is explicit,
@@ -81,7 +87,8 @@ the repository's history.
 
 **Never run bare `bv`** — with no flags it opens an interactive TUI and
 blocks the session; every invocation needs a `--robot-*` flag. Flags:
-`--robot-triage` (mega-command, see above), `--robot-next`,
+`--robot-triage` (overview under `.triage`; not the claimable
+frontier), `--robot-next`,
 `--robot-plan`, `--robot-priority`, `--robot-insights`,
 `--robot-label-health`, `--robot-label-flow`, `--robot-label-attention`,
 `--robot-history`, `--robot-diff --diff-since <ref>`,
