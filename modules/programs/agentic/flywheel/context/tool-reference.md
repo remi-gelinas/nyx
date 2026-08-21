@@ -169,3 +169,26 @@ Searches past agent session transcripts for prior work, decisions, or
 context — reach for it before re-deriving something a session already
 figured out. Invoke via `cass --robot --json <query>`; an optional
 semantic model changes ranking quality, not the interface.
+
+## codebase-memory
+
+Indexed knowledge graph over the repo. Query it **before** Grep/Glob
+for any code exploration — graph hits are ~500 tokens vs ~80K for a
+grep survey. MCP server name `codebase-memory`; runtime tools are
+`mcp__plugin_claude-code-home-manager_codebase-memory__<tool>`.
+
+If the project is not indexed, `index_repository` first. Then:
+
+- Find a symbol: `search_graph(name_pattern="...")`
+- Who calls X / what X calls: `trace_path(direction="inbound"|"outbound"|"both")`
+- Exact source of a symbol: `get_code_snippet(qualified_name="...")`
+- Text search: `search_code(pattern)` (graph-augmented grep)
+- Architecture: `get_architecture(aspects)`
+- Complex patterns: `query_graph` with Cypher
+- Impact of local changes: `detect_changes()`
+
+Grep/Glob/Read stay for uncommitted edits, configs, non-code files,
+and the specific hunks you are about to edit. Never use `manage_adr`
+— it is a single-document store, not a registry; decisions live on
+the br board. The skill `codebase-memory` has the decision matrix,
+Cypher examples, and gotchas.

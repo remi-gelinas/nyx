@@ -43,6 +43,10 @@ Graph tools return precise structural results in ~500 tokens vs ~80K for grep.
 `query_graph`, `get_graph_schema`, `get_code_snippet`, `get_architecture`,
 `manage_adr`, `ingest_traces`
 
+Note: `manage_adr` is a single-document-per-project store with fixed
+sections, not a numbered ADR registry. Decision records live on the br
+board; do not record decisions here.
+
 ## Edge Types
 CALLS, HTTP_CALLS, ASYNC_CALLS, IMPORTS, DEFINES, DEFINES_METHOD,
 HANDLES, IMPLEMENTS, OVERRIDE, USAGE, FILE_CHANGES_WITH,
@@ -62,10 +66,14 @@ MATCH (a)-[r:CALLS]->(b) WHERE a.name = 'main' RETURN b.name
 4. `direction="outbound"` misses cross-service callers — use `direction="both"`.
 5. Results default to 10 per page — check `has_more` and use `offset`.
 
-## Worktrees (agent teams)
+## Uncommitted edits
 
-The graph indexes the main checkout, not your worktree. Draw the line accordingly:
+The graph indexes committed files. Draw the line accordingly:
 
-- **Your own in-progress edits**: the graph cannot see them — use grep/Read in your worktree for anything touching your uncommitted work. This is correct, not a fallback.
-- **The existing codebase** — callers, definitions, call chains, architecture, impact of a planned change: the graph is authoritative and vastly cheaper than grepping. From a worktree, pass the main checkout via `repo_path` so queries hit the shared index instead of an unindexed path.
+- **Your own in-progress edits**: the graph cannot see them — use Grep/Read for anything touching uncommitted work. This is correct, not a fallback.
+- **The existing codebase** — callers, definitions, call chains, architecture, impact of a planned change: the graph is authoritative and vastly cheaper than grepping.
 - One stale-looking answer about your own changes does not mean the graph is broken — it means you asked it about the one thing it does not hold.
+
+## Other repositories
+
+The index cache is machine-global — the graph is not limited to the repo your session started in. Query any repository by passing its checkout path as `repo_path`; use `index_status` to check whether it is indexed, and `index_repository` (cheap, one-time) when it is not. cd-and-grep into a sibling repo is the same method violation as grepping your own indexed repo.

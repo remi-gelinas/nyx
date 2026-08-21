@@ -98,6 +98,23 @@ the claim lands is the single most common cause of collisions.
   compaction; compaction drops working rules and the file is the only
   durable copy.
 
+## Code discovery
+
+Query the codebase-memory graph before grepping or reading.
+
+- Structure and usage — where a symbol is defined, what calls it, what
+  a change touches — are one graph call, not a grep survey.
+- If the repo is not indexed, run `index_repository` once. It is fast
+  and incremental afterwards.
+- Text search: `search_code(pattern)` is graph-augmented grep. Plain
+  Grep and Read stay for uncommitted edits, unindexed files, and the
+  hunks you are about to edit.
+- The index cache is machine-global. Query any repo via `repo_path`.
+  Crossing a repo boundary does not mean falling back to grep.
+- Grepping an indexed repo for structure without trying the graph
+  first is a method violation. State why the graph could not answer
+  before falling back.
+
 ## User rules
 
 ### Communication

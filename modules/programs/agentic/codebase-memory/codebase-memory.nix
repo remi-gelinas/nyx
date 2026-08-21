@@ -32,7 +32,9 @@
       # Hooks harvested from the upstream installer (its imperative install
       # is replaced by this module; re-harvest on version bumps). The
       # augmenter never blocks: it only adds graph context to searches and
-      # exits 0 silently on any failure.
+      # exits 0 silently on any failure. v0.9.0 handles Grep/Glob only
+      # (hook_augment.c); upstream's newer "post-Read coverage" hook should
+      # be harvested and registered on PostToolUse/Read at the next bump.
       searchAugmenter = pkgs.writeShellScript "cbm-search-augmenter" ''
         ${codebase-memory-mcp}/bin/codebase-memory-mcp hook-augment 2>/dev/null
         exit 0
@@ -81,6 +83,14 @@
           type = "stdio";
           command = "${codebase-memory-mcp}/bin/codebase-memory-mcp";
         };
+
+        # manage_adr is a single-document store, not a numbered registry.
+        # Sessions that "recorded" ADRs through it recorded nothing usable.
+        # Decisions live on the br board. Deny the tool structurally —
+        # prose prohibitions drift.
+        settings.permissions.deny = [
+          "mcp__plugin_claude-code-home-manager_codebase-memory__manage_adr"
+        ];
 
         skills.codebase-memory = ./_skills/codebase-memory;
 
