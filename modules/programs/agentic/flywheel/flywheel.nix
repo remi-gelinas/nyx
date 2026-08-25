@@ -43,6 +43,59 @@
         end
       '';
 
+      # Commit messages describe the change for the repository's history, never
+      # the process that produced it — but that rule is prompt-level and decays
+      # with context, and the repo's non-flywheel contributors are the ones who
+      # inherit the leak. This commit-msg hook is the mechanical backstop. It
+      # matches only identifiers that never legitimately appear in history:
+      # bead ids, the committing agent's own name, AI bylines, review
+      # bookkeeping. Process *vocabulary* is deliberately not matched — this
+      # repo's own commits are about the flywheel ("flywheel: attach epic
+      # children with parent-child"), and banning the words would reject them.
+      #
+      # commit-msg, not pre-commit: pre-commit hooks are not passed the
+      # message. That also keeps this clear of agent-mail's lease guard, which
+      # only ever writes pre-commit and pre-push — no chaining, no wrapper, and
+      # none of the recursion the guard's chain-runner invites.
+      # Plain sh with PATH tools rather than pinned store paths: unlike the
+      # claude hooks, this file persists on disk between switches and must not
+      # break when a store path is collected.
+      commitMsgHook = pkgs.writeTextFile {
+        name = "flywheel-commit-msg";
+        executable = true;
+        text = ''
+          #!/bin/sh
+          # flywheel-commit-msg-guard
+          # Cut the `git commit -v` scissors block, then the comment lines, so
+          # the diff and git's own template never trip a pattern.
+          msg=$(sed '/^# .*>8/,$d' "$1" | grep -v '^#')
+
+          fail() {
+            echo "commit-msg: $1" >&2
+            echo "  Commit messages describe the change, not the process behind it." >&2
+            echo "  Bead ids belong in \`br close --reason\`, mail thread_ids, and reservation reasons." >&2
+            echo "  Rewrite the message, or bypass with: git commit --no-verify" >&2
+            exit 1
+          }
+
+          printf '%s' "$msg" | grep -qiE '(^|[^a-z0-9])(br|bd)-[0-9]+' &&
+            fail "bead id in the message"
+          printf '%s' "$msg" | grep -qiE 'co-authored-by:.*(claude|anthropic)|generated with.*claude' &&
+            fail "AI byline in the message"
+          printf '%s' "$msg" | grep -qiE 'review round|self-review|fresh-eyes review|round [0-9]+ of review' &&
+            fail "review bookkeeping in the message"
+
+          # Swarm identities only. Interactive shells set AGENT_NAME to the
+          # username, and a human's own name is not a process leak.
+          if [ -n "$AGENT_NAME" ] && [ "$AGENT_NAME" != "$(id -un)" ]; then
+            printf '%s' "$msg" | grep -qiF "$AGENT_NAME" &&
+              fail "agent name '$AGENT_NAME' in the message"
+          fi
+
+          exit 0
+        '';
+      };
+
       # The flywheel loop's mechanical backstop: swarm agents finish a bead
       # and end their turn instead of pulling the next one, and prompt-level
       # "keep going" instructions decay with context. This Stop hook blocks
@@ -267,7 +320,16 @@
           end
         end
         am guard install $PWD $PWD
-        echo "Board, agent-mail project, and lease guard ready. Agent identity is exported at claude/codex launch; the stock guard hooks run untouched."
+        # Copied, not symlinked: the hook has to survive a store GC. Refuses to
+        # clobber a genuine user commit-msg hook — ours is identified by the
+        # marker comment, so reinstalling over our own is fine.
+        if test -f .git/hooks/commit-msg; and not grep -q 'flywheel-commit-msg-guard' .git/hooks/commit-msg
+          echo "Left the existing .git/hooks/commit-msg alone; the message guard is not installed. Chain it yourself or move it aside."
+        else
+          cp -f ${commitMsgHook} .git/hooks/commit-msg
+          chmod +x .git/hooks/commit-msg
+        end
+        echo "Board, agent-mail project, lease guard, and commit-message guard ready. Agent identity is exported at claude/codex launch; the stock guard hooks run untouched."
       '';
 
       programs.fish.functions.flywheel-agent-env = agentEnvFunction;
