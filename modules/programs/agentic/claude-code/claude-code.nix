@@ -140,6 +140,8 @@
           switch $model
             case 'x-ai/grok-4.6'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 500000
+            case 'z-ai/glm-5.3' 'z-ai/glm-5.3-flash'
+              set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 1310720
             case '*'
               set -e CLAUDE_CODE_MAX_CONTEXT_TOKENS
           end
