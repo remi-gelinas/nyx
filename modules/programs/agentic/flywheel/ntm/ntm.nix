@@ -9,7 +9,9 @@
       # runtime. tmux is wrapped onto its PATH from nixpkgs; the agent CLIs
       # are deliberately left off the wrapper PATH so ntm resolves whichever
       # ones the user's own session already provides.
-      ntm = pkgs.buildGoModule {
+      # v1.30.0's go.mod requires go >= 1.26.5; the 26.05 and unstable pins
+      # both carry 1.26.4, master 1.26.5.
+      ntm = pkgs.buildGoModule.override { go = pkgs.master.go; } {
         pname = "ntm";
         inherit (sources.ntm) version src vendorHash;
 
@@ -89,6 +91,14 @@
             enabled = false
           ''
         }
+        contextLimits=${
+          pkgs.writeText "ntm-context-limits.toml" ''
+
+            [models.context_limits]
+            "claude-fable-5" = 1000000
+            "anthropic/claude-fable-5" = 1000000
+          ''
+        }
         run mkdir -p "$HOME/.config/ntm"
         [ -e "$cfg" ] || run touch "$cfg"
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[recovery\]' "$cfg"; then
@@ -106,6 +116,13 @@
         # off launch clean; with them on, panes died at the prompt.
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[integrations' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$integrations" "$cfg"
+        fi
+        # v1.30.0's registry books claude-fable-5 at 200k and carries no entry
+        # for the vendor-prefixed slug spawn ids keep through OpenRouter;
+        # fable actually serves 1M (OpenRouter lists anthropic/claude-fable-5
+        # at 1000000). context_limits overrides win over registry built-ins.
+        if ! ${pkgs.gnugrep}/bin/grep -q '^\[models\.context_limits\]' "$cfg"; then
+          run sh -c 'cat "$1" >> "$2"' _ "$contextLimits" "$cfg"
         fi
       '';
     };

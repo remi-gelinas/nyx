@@ -4,7 +4,7 @@
 {
   ntm =
     let
-      version = "1.20.0";
+      version = "1.30.0";
     in
     {
       inherit version;
@@ -12,9 +12,9 @@
         owner = "Dicklesworthstone";
         repo = "ntm";
         tag = "v${version}";
-        hash = "sha256-3Vs9eHSAeTP0zbJO8l1o+0BQ514807D5xjs51Foe9HA=";
+        hash = "sha256-ETC2LoFar6FKTnjzTjKZ+7Tlcv2z5QR3mT4zYsTvLHk=";
       };
       # No vendor/ committed upstream; fetched via vendorHash.
-      vendorHash = "sha256-uGEcLzOAl5wQ4BVRlZwjln6JziIUbNulO1xfZOtpS/8=";
+      vendorHash = "sha256-Ks/8pCbvDnmAH0rDjAMq1DXH93Jz34Tr0bQfhQ0yBTg=";
     };
 }
