@@ -20,7 +20,7 @@
         ];
 
         settings = {
-          model = "claude-fable-5[1m]";
+          model = "claude-fable-5-1";
           effortLevel = "high";
           tui = "fullscreen";
           permissions = {
@@ -117,7 +117,8 @@
           # (Adjacent-string quoting — "$model"'[1m]' — because [1m] inside
           # the same quotes is fish list-index syntax.)
           set -l million moonshotai/kimi-k3 anthropic/claude-opus-5 \
-            anthropic/claude-fable-5 deepseek/deepseek-v4-flash
+            anthropic/claude-fable-5 anthropic/claude-fable-5.1 \
+            deepseek/deepseek-v4-flash
           if contains -- $model $million
             set -l suffixed "$model"'[1m]'
             if test -n "$i"

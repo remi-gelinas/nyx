@@ -97,6 +97,8 @@
             [models.context_limits]
             "claude-fable-5" = 1000000
             "anthropic/claude-fable-5" = 1000000
+            "claude-fable-5-1" = 1000000
+            "anthropic/claude-fable-5.1" = 1000000
           ''
         }
         run mkdir -p "$HOME/.config/ntm"
