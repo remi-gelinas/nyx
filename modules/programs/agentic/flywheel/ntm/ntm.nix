@@ -9,7 +9,7 @@
       # runtime. tmux is wrapped onto its PATH from nixpkgs; the agent CLIs
       # are deliberately left off the wrapper PATH so ntm resolves whichever
       # ones the user's own session already provides.
-      # v1.30.0's go.mod requires go >= 1.26.5; the 26.05 and unstable pins
+      # v1.31.0's go.mod requires go >= 1.26.5; the 26.05 and unstable pins
       # both carry 1.26.4, master 1.26.5.
       ntm = pkgs.buildGoModule.override { go = pkgs.master.go; } {
         pname = "ntm";
@@ -119,7 +119,7 @@
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[integrations' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$integrations" "$cfg"
         fi
-        # v1.30.0's registry books claude-fable-5 at 200k and carries no entry
+        # v1.31.0's registry books claude-fable-5 at 200k and carries no entry
         # for the vendor-prefixed slug spawn ids keep through OpenRouter;
         # fable actually serves 1M (OpenRouter lists anthropic/claude-fable-5
         # at 1000000). context_limits overrides win over registry built-ins.

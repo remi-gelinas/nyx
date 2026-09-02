@@ -11,13 +11,13 @@
 {
   mcp-agent-mail =
     let
-      version = "0.3.24";
+      version = "0.3.32";
     in
     {
       inherit version;
       src = fetchurl {
         url = "https://github.com/Dicklesworthstone/mcp_agent_mail_rust/releases/download/v${version}/mcp-agent-mail-aarch64-apple-darwin.tar.gz";
-        hash = "sha256-EqwzL4SM/mBXLPPOLkJpADQf9dWlMb3Wpc7amOqD+ro=";
+        hash = "sha256-3Ty3rq441ZOXW3/H/CRVSX9qhk7oawSfH1D28XFf6AE=";
       };
     };
 }
