@@ -7,7 +7,6 @@
         determinate
         zed
         ghostty
-        warp
         tmux
         onepassword
         fonts-pragmata-pro
