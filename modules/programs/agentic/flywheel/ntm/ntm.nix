@@ -99,6 +99,8 @@
             "anthropic/claude-fable-5" = 1000000
             "claude-fable-5-1" = 1000000
             "anthropic/claude-fable-5.1" = 1000000
+            "gpt-6-astra" = 1050000
+            "openai/gpt-6-astra" = 1050000
           ''
         }
         run mkdir -p "$HOME/.config/ntm"
