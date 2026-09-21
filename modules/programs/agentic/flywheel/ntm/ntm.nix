@@ -93,8 +93,6 @@
         }
         contextLimits=${
           pkgs.writeText "ntm-context-limits.toml" ''
-
-            [models.context_limits]
             "claude-fable-5" = 1000000
             "anthropic/claude-fable-5" = 1000000
             "claude-fable-5-1" = 1000000
@@ -130,9 +128,20 @@
         # fable actually serves 1M (OpenRouter lists anthropic/claude-fable-5
         # at 1000000). It has no xAI entries at all, so Grok ids fall to the
         # 128k default. context_limits overrides win over registry built-ins.
+        # Unlike the other seeds this one is per-key: the section is created
+        # once, then every key the file lacks is inserted under its header,
+        # so models added later still land. A key the user already has keeps
+        # its value.
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[models\.context_limits\]' "$cfg"; then
-          run sh -c 'cat "$1" >> "$2"' _ "$contextLimits" "$cfg"
+          run sh -c 'printf "\n[models.context_limits]\n" >> "$1"' _ "$cfg"
         fi
+        while IFS= read -r line; do
+          key=''${line%% = *}
+          [ -n "$key" ] || continue
+          if ! ${pkgs.gnugrep}/bin/grep -qF -- "$key = " "$cfg"; then
+            run ${pkgs.gnused}/bin/sed -i "/^\[models\.context_limits\]/a $line" "$cfg"
+          fi
+        done < "$contextLimits"
       '';
     };
 }
