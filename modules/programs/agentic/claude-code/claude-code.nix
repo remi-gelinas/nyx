@@ -139,7 +139,7 @@
           # every other launch: set -gx from an earlier pane persists in the
           # shell and would silently misreport the next model's window.
           switch $model
-            case 'x-ai/grok-4.6'
+            case 'x-ai/grok-4.6' 'x-ai/grok-4.7'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 500000
             case 'z-ai/glm-5.3' 'z-ai/glm-5.3-flash'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 1310720

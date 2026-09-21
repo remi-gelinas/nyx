@@ -101,6 +101,10 @@
             "anthropic/claude-fable-5.1" = 1000000
             "gpt-6-astra" = 1050000
             "openai/gpt-6-astra" = 1050000
+            "grok-4.6" = 500000
+            "x-ai/grok-4.6" = 500000
+            "grok-4.7" = 500000
+            "x-ai/grok-4.7" = 500000
           ''
         }
         run mkdir -p "$HOME/.config/ntm"
@@ -124,7 +128,8 @@
         # v1.31.0's registry books claude-fable-5 at 200k and carries no entry
         # for the vendor-prefixed slug spawn ids keep through OpenRouter;
         # fable actually serves 1M (OpenRouter lists anthropic/claude-fable-5
-        # at 1000000). context_limits overrides win over registry built-ins.
+        # at 1000000). It has no xAI entries at all, so Grok ids fall to the
+        # 128k default. context_limits overrides win over registry built-ins.
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[models\.context_limits\]' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$contextLimits" "$cfg"
         fi
