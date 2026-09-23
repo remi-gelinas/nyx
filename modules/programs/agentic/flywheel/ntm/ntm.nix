@@ -97,8 +97,12 @@
             "anthropic/claude-fable-5" = 1000000
             "claude-fable-5-1" = 1000000
             "anthropic/claude-fable-5.1" = 1000000
+            "claude-opus-5-5" = 1000000
+            "anthropic/claude-opus-5.5" = 1000000
             "gpt-6-astra" = 1050000
             "openai/gpt-6-astra" = 1050000
+            "gpt-6-luna" = 1050000
+            "openai/gpt-6-luna" = 1050000
             "grok-4.6" = 500000
             "x-ai/grok-4.6" = 500000
             "grok-4.7" = 500000

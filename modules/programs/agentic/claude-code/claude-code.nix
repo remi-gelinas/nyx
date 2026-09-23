@@ -117,8 +117,8 @@
           # (Adjacent-string quoting — "$model"'[1m]' — because [1m] inside
           # the same quotes is fish list-index syntax.)
           set -l million moonshotai/kimi-k3 anthropic/claude-opus-5 \
-            anthropic/claude-fable-5 anthropic/claude-fable-5.1 \
-            deepseek/deepseek-v4-flash
+            anthropic/claude-opus-5.5 anthropic/claude-fable-5 \
+            anthropic/claude-fable-5.1 deepseek/deepseek-v4-flash
           if contains -- $model $million
             set -l suffixed "$model"'[1m]'
             if test -n "$i"
@@ -143,7 +143,7 @@
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 500000
             case 'z-ai/glm-5.3' 'z-ai/glm-5.3-flash'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 1310720
-            case 'openai/gpt-6-astra'
+            case 'openai/gpt-6-astra' 'openai/gpt-6-luna'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 1050000
             case '*'
               set -e CLAUDE_CODE_MAX_CONTEXT_TOKENS
