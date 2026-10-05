@@ -6,7 +6,8 @@
       nixpkgs.overlays = [
         (final: prev: {
           master = import inputs.nixpkgs-master {
-            inherit (prev) system config;
+            inherit (prev) config;
+            inherit (prev.stdenv.hostPlatform) system;
           };
         })
       ];
