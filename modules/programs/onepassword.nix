@@ -16,16 +16,11 @@
         );
       }
       (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-        programs.ssh.extraConfig = ''
-          Host *
-            IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-        '';
+        programs.ssh.settings."*".IdentityAgent =
+          ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"'';
       })
       (lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-        programs.ssh.extraConfig = ''
-          Host *
-            IdentityAgent ~/.1password/agent.sock
-        '';
+        programs.ssh.settings."*".IdentityAgent = "~/.1password/agent.sock";
       })
     ];
 }
