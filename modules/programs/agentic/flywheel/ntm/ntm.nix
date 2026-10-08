@@ -109,6 +109,18 @@
             "x-ai/grok-4.6" = 500000
             "grok-4.7" = 500000
             "x-ai/grok-4.7" = 500000
+            "deepseek/deepseek-v4-flash" = 1048576
+            "deepseek/deepseek-v4.1-flash" = 1048576
+            "z-ai/glm-5.3" = 1310720
+            "z-ai/glm-5.3-flash" = 1310720
+          ''
+        }
+        claudeAliases=${
+          pkgs.writeText "ntm-claude-aliases.toml" ''
+            "deepseek-v4-flash-nitro" = "deepseek/deepseek-v4-flash:nitro"
+            "deepseek-v4.1-flash-nitro" = "deepseek/deepseek-v4.1-flash:nitro"
+            "glm-5.3-nitro" = "z-ai/glm-5.3:nitro"
+            "glm-5.3-flash-nitro" = "z-ai/glm-5.3-flash:nitro"
           ''
         }
         run mkdir -p "$HOME/.config/ntm"
@@ -148,6 +160,22 @@
             run ${pkgs.gnused}/bin/sed -i "/^\[models\.context_limits\]/a $line" "$cfg"
           fi
         done < "$contextLimits"
+        # The spawn spec is N:model:effort split on ':', so a routing variant
+        # typed inline (--cc=2:z-ai/glm-5.3:nitro) lands as the effort and
+        # the variant is lost. Aliases resolve after the split, so variant
+        # slugs ride in as alias targets (--cc=2:glm-5.3-nitro). Seeded
+        # per-key like context_limits; ntm merges these over its built-in
+        # aliases rather than replacing them.
+        if ! ${pkgs.gnugrep}/bin/grep -q '^\[models\.claude\]' "$cfg"; then
+          run sh -c 'printf "\n[models.claude]\n" >> "$1"' _ "$cfg"
+        fi
+        while IFS= read -r line; do
+          key=''${line%% = *}
+          [ -n "$key" ] || continue
+          if ! ${pkgs.gnugrep}/bin/grep -qF -- "$key = " "$cfg"; then
+            run ${pkgs.gnused}/bin/sed -i "/^\[models\.claude\]/a $line" "$cfg"
+          fi
+        done < "$claudeAliases"
       '';
     };
 }

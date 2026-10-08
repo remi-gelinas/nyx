@@ -94,6 +94,14 @@ ntm spawn <project> --cc=2:claude-sonnet-5:high --cc=2:moonshotai/kimi-k2:high
 billing. Give OpenRouter models the worker beads, not the subtle ones —
 tool-calling fidelity varies off-Anthropic.
 
+Routing variants (`:nitro` for fastest provider) can't be typed inline:
+the spec splits on `:`, so `z-ai/glm-5.3:nitro` would land as the
+effort. Use the seeded aliases instead — `deepseek-v4.1-flash-nitro`,
+`deepseek-v4-flash-nitro`, `glm-5.3-nitro`, `glm-5.3-flash-nitro`:
+```
+ntm spawn <project> --cc=2:deepseek-v4.1-flash-nitro:high
+```
+
 Identity is automatic: AGENT_NAME/BR_ACTOR export at claude/codex launch
 from the pane's ntm-assigned name, the statusline shows it
 (`⛭ Name · Model`), and the lease guard reads it at commit time. A pane

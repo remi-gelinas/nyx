@@ -116,10 +116,14 @@
           # leaves. ntm's spec charset can't carry brackets, so it lands here.
           # (Adjacent-string quoting — "$model"'[1m]' — because [1m] inside
           # the same quotes is fish list-index syntax.)
+          # Window checks key on the bare slug: OpenRouter routing variants
+          # (:nitro, :floor, ...) pick a provider, not a different window.
+          set -l base (string replace -r -- ':[a-z]+$' "" $model)
           set -l million moonshotai/kimi-k3 anthropic/claude-opus-5 \
             anthropic/claude-opus-5.5 anthropic/claude-fable-5 \
-            anthropic/claude-fable-5.1 deepseek/deepseek-v4-flash
-          if contains -- $model $million
+            anthropic/claude-fable-5.1 deepseek/deepseek-v4-flash \
+            deepseek/deepseek-v4.1-flash
+          if contains -- $base $million
             set -l suffixed "$model"'[1m]'
             if test -n "$i"
               set argv[(math $i + 1)] $suffixed
@@ -138,7 +142,7 @@
           # claude- — i.e. exactly the third-party OpenRouter set. Clear it on
           # every other launch: set -gx from an earlier pane persists in the
           # shell and would silently misreport the next model's window.
-          switch $model
+          switch $base
             case 'x-ai/grok-4.6' 'x-ai/grok-4.7'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 500000
             case 'z-ai/glm-5.3' 'z-ai/glm-5.3-flash'
