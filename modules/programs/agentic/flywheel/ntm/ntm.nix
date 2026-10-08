@@ -103,6 +103,8 @@
             "openai/gpt-6-astra" = 1050000
             "gpt-6-luna" = 1050000
             "openai/gpt-6-luna" = 1050000
+            "gpt-6.1-sol" = 1050000
+            "openai/gpt-6.1-sol" = 1050000
             "grok-4.6" = 500000
             "x-ai/grok-4.6" = 500000
             "grok-4.7" = 500000
