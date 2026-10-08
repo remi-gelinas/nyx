@@ -122,7 +122,8 @@
           # Windows of 1,048,576 (DeepSeek, GLM) ride it too: claude's 1e6
           # sits just under the real cap.
           set -l million moonshotai/kimi-k3 anthropic/claude-opus-5.5 \
-            anthropic/claude-fable-5.1 deepseek/deepseek-v4.1-flash \
+            anthropic/claude-fable-5.1 claude-sonnet-5-5 \
+            anthropic/claude-sonnet-5.5 deepseek/deepseek-v4.1-flash \
             z-ai/glm-5.3 z-ai/glm-5.3-flash
           if contains -- $base $million
             set -l suffixed "$model"'[1m]'

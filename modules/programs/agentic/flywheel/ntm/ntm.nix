@@ -78,7 +78,7 @@
           pkgs.writeText "ntm-agents.toml" ''
 
             [agents]
-            codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-6.1-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
+            codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-6-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
           ''
         }
         integrations=${
@@ -97,10 +97,13 @@
             "anthropic/claude-fable-5.1" = 1000000
             "claude-opus-5-5" = 1000000
             "anthropic/claude-opus-5.5" = 1000000
+            "claude-sonnet-5-5" = 1000000
+            "anthropic/claude-sonnet-5.5" = 1000000
             "gpt-6-astra" = 1050000
             "openai/gpt-6-astra" = 1050000
             "gpt-6-luna" = 1050000
             "openai/gpt-6-luna" = 1050000
+            "gpt-6-sol" = 1050000
             "gpt-6.1-sol" = 1050000
             "openai/gpt-6.1-sol" = 1050000
             "grok-4.7" = 500000

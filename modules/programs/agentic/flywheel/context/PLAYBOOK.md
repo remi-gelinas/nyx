@@ -82,7 +82,7 @@ ntm spawn <project> --cc=2 --cod=2      # start small; scale after a clean wave
 ```
 Agent specs take `N:model:effort`, and flags accumulate for mixed swarms:
 ```
-ntm spawn <project> --cc=4:claude-sonnet-5-5:high --cod=2:gpt-6.1-sol:high
+ntm spawn <project> --cc=4:claude-sonnet-5-5:high --cod=2:gpt-6-sol:high
 ```
 Slash-bearing model ids route through OpenRouter (key file at
 `~/.config/openrouter/key`) while slashless ids stay on the Anthropic
