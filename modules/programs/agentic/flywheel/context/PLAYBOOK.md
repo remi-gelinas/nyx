@@ -82,13 +82,13 @@ ntm spawn <project> --cc=2 --cod=2      # start small; scale after a clean wave
 ```
 Agent specs take `N:model:effort`, and flags accumulate for mixed swarms:
 ```
-ntm spawn <project> --cc=4:claude-sonnet-5:high --cod=2:gpt-5.6-sol:high
+ntm spawn <project> --cc=4:claude-sonnet-5-5:high --cod=2:gpt-6.1-sol:high
 ```
 Slash-bearing model ids route through OpenRouter (key file at
 `~/.config/openrouter/key`) while slashless ids stay on the Anthropic
 seat — mix freely per pane:
 ```
-ntm spawn <project> --cc=2:claude-sonnet-5:high --cc=2:moonshotai/kimi-k2:high
+ntm spawn <project> --cc=2:claude-sonnet-5-5:high --cc=2:moonshotai/kimi-k3:high
 ```
 `anthropic/claude-*` slugs are the same Claude models on OpenRouter
 billing. Give OpenRouter models the worker beads, not the subtle ones —
@@ -97,7 +97,7 @@ tool-calling fidelity varies off-Anthropic.
 Routing variants (`:nitro` for fastest provider) can't be typed inline:
 the spec splits on `:`, so `z-ai/glm-5.3:nitro` would land as the
 effort. Use the seeded aliases instead — `deepseek-v4.1-flash-nitro`,
-`deepseek-v4-flash-nitro`, `glm-5.3-nitro`, `glm-5.3-flash-nitro`:
+`glm-5.3-nitro`, `glm-5.3-flash-nitro`:
 ```
 ntm spawn <project> --cc=2:deepseek-v4.1-flash-nitro:high
 ```

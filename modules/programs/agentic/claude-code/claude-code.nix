@@ -92,7 +92,7 @@
       };
 
       # The org policy pins new sessions to sonnet regardless of settings.json;
-      # force opus-5 at launch unless the caller passes an explicit --model.
+      # force opus-5.5 at launch unless the caller passes an explicit --model.
       # Subcommands take no --model flag, so pass them through untouched. No
       # --agent injection: the lead role left with the orchestration stack.
       programs.fish.functions.claude = ''
@@ -105,7 +105,7 @@
           command claude $argv
         else
           set -l extra
-          set -l model claude-opus-5
+          set -l model claude-opus-5-5
           set -l i (contains -i -- --model $argv); and set model $argv[(math $i + 1)]
           for a in $argv
             string match -qr -- '^--model=(?<m>.+)$' $a; and set model $m
@@ -119,10 +119,11 @@
           # Window checks key on the bare slug: OpenRouter routing variants
           # (:nitro, :floor, ...) pick a provider, not a different window.
           set -l base (string replace -r -- ':[a-z]+$' "" $model)
-          set -l million moonshotai/kimi-k3 anthropic/claude-opus-5 \
-            anthropic/claude-opus-5.5 anthropic/claude-fable-5 \
-            anthropic/claude-fable-5.1 deepseek/deepseek-v4-flash \
-            deepseek/deepseek-v4.1-flash
+          # Windows of 1,048,576 (DeepSeek, GLM) ride it too: claude's 1e6
+          # sits just under the real cap.
+          set -l million moonshotai/kimi-k3 anthropic/claude-opus-5.5 \
+            anthropic/claude-fable-5.1 deepseek/deepseek-v4.1-flash \
+            z-ai/glm-5.3 z-ai/glm-5.3-flash
           if contains -- $base $million
             set -l suffixed "$model"'[1m]'
             if test -n "$i"
@@ -143,10 +144,8 @@
           # every other launch: set -gx from an earlier pane persists in the
           # shell and would silently misreport the next model's window.
           switch $base
-            case 'x-ai/grok-4.6' 'x-ai/grok-4.7'
+            case 'x-ai/grok-4.7'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 500000
-            case 'z-ai/glm-5.3' 'z-ai/glm-5.3-flash'
-              set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 1310720
             case 'openai/gpt-6-astra' 'openai/gpt-6-luna' 'openai/gpt-6.1-sol'
               set -gx CLAUDE_CODE_MAX_CONTEXT_TOKENS 1050000
             case '*'

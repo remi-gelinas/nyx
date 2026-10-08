@@ -78,7 +78,7 @@
           pkgs.writeText "ntm-agents.toml" ''
 
             [agents]
-            codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-5.6-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
+            codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-6.1-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
           ''
         }
         integrations=${
@@ -93,8 +93,6 @@
         }
         contextLimits=${
           pkgs.writeText "ntm-context-limits.toml" ''
-            "claude-fable-5" = 1000000
-            "anthropic/claude-fable-5" = 1000000
             "claude-fable-5-1" = 1000000
             "anthropic/claude-fable-5.1" = 1000000
             "claude-opus-5-5" = 1000000
@@ -105,19 +103,15 @@
             "openai/gpt-6-luna" = 1050000
             "gpt-6.1-sol" = 1050000
             "openai/gpt-6.1-sol" = 1050000
-            "grok-4.6" = 500000
-            "x-ai/grok-4.6" = 500000
             "grok-4.7" = 500000
             "x-ai/grok-4.7" = 500000
-            "deepseek/deepseek-v4-flash" = 1048576
             "deepseek/deepseek-v4.1-flash" = 1048576
-            "z-ai/glm-5.3" = 1310720
-            "z-ai/glm-5.3-flash" = 1310720
+            "z-ai/glm-5.3" = 1048576
+            "z-ai/glm-5.3-flash" = 1048576
           ''
         }
         claudeAliases=${
           pkgs.writeText "ntm-claude-aliases.toml" ''
-            "deepseek-v4-flash-nitro" = "deepseek/deepseek-v4-flash:nitro"
             "deepseek-v4.1-flash-nitro" = "deepseek/deepseek-v4.1-flash:nitro"
             "glm-5.3-nitro" = "z-ai/glm-5.3:nitro"
             "glm-5.3-flash-nitro" = "z-ai/glm-5.3-flash:nitro"
@@ -141,10 +135,11 @@
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[integrations' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$integrations" "$cfg"
         fi
-        # v1.31.0's registry books claude-fable-5 at 200k and carries no entry
-        # for the vendor-prefixed slug spawn ids keep through OpenRouter;
-        # fable actually serves 1M (OpenRouter lists anthropic/claude-fable-5
-        # at 1000000). It has no xAI entries at all, so Grok ids fall to the
+        # v1.31.0's registry books claude-fable-5 at 200k (claude-fable-5-1
+        # inherits it by prefix match) and carries no entry for the
+        # vendor-prefixed slug spawn ids keep through OpenRouter; fable
+        # actually serves 1M (OpenRouter lists anthropic/claude-fable-5.1 at
+        # 1000000). It has no xAI entries at all, so Grok ids fall to the
         # 128k default. context_limits overrides win over registry built-ins.
         # Unlike the other seeds this one is per-key: the section is created
         # once, then every key the file lacks is inserted under its header,

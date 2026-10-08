@@ -372,7 +372,7 @@
 
       # OpenRouter gateway switch, called by the claude launch wrapper with
       # the model about to be requested. OpenRouter slugs carry a slash
-      # (moonshotai/kimi-k2, z-ai/glm-4.7, anthropic/claude-sonnet-5 for
+      # (moonshotai/kimi-k3, z-ai/glm-5.3, anthropic/claude-sonnet-5.5 for
       # Claude on OpenRouter billing); plain Anthropic ids don't, and leave
       # the Enterprise session untouched. OpenRouter's Anthropic-native
       # endpoint means claude runs unmodified — this only points it there
