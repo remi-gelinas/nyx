@@ -177,6 +177,16 @@ context — reach for it before re-deriving something a session already
 figured out. Invoke via `cass --robot --json <query>`; an optional
 semantic model changes ranking quality, not the interface.
 
+## gh + acli (GitHub and Jira)
+
+There is no GitHub or Jira MCP server — use the CLIs. `gh` for
+everything GitHub (PRs, issues, reviews, search; `gh api` for the
+rest). `acli jira workitem ...` for Jira, where it is installed.
+Where workspace trees set `GH_TOKEN` via direnv, `gh` already acts as
+the right account for the repo you launched in. Never run
+`gh auth switch` — it flips the account globally, for every running
+session at once.
+
 ## codebase-memory
 
 Indexed knowledge graph over the repo. Query it **before** Grep/Glob

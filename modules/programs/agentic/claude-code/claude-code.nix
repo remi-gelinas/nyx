@@ -78,14 +78,6 @@
           # subagents via the Agent tool remain available but touch no leases.
         };
 
-        mcpServers.github = {
-          type = "http";
-          url = "https://api.githubcopilot.com/mcp/";
-          # GitHub's remote MCP server doesn't support Claude Code's OAuth
-          # flow; the PAT is supplied via the environment at launch.
-          headers.Authorization = "Bearer \${GITHUB_MCP_TOKEN}";
-        };
-
         skills = {
           dendritic-nix = ./_skills/dendritic-nix;
         };
