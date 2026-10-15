@@ -386,6 +386,7 @@
           # silently inherit the gateway.
           set -e ANTHROPIC_BASE_URL
           set -e ANTHROPIC_AUTH_TOKEN
+          set -e CLAUDE_CODE_MAX_OUTPUT_TOKENS
           return 0
         end
         set -l keyfile ~/.config/openrouter/key
@@ -395,6 +396,10 @@
         end
         set -gx ANTHROPIC_BASE_URL https://openrouter.ai/api
         set -gx ANTHROPIC_AUTH_TOKEN (head -n1 $keyfile | string trim)
+        # claude caps output for ids it doesn't recognize at 32k by default,
+        # and 128k is its hard ceiling for them. Every slug we route serves
+        # at least 128k out, so long responses stop dying at 32k.
+        set -gx CLAUDE_CODE_MAX_OUTPUT_TOKENS 128000
         # set -e returns 4 when the variable was already unset, and the
         # caller treats any nonzero status as abort-the-launch — end true.
         set -e ANTHROPIC_API_KEY
