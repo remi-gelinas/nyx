@@ -134,14 +134,16 @@
         fi
         # The [agents] section seed above only fires on a file that lacks the
         # header, so new keys need per-key inserts. ntm's compiled-in oc
-        # template launches bare `opencode`; swarm panes need --standalone
-        # (v2's shared daemon would run every pane's tools under one env —
-        # per-pane AGENT_NAME dies with it) and --agent flywheel (the
-        # allow-all worker profile from flywheel.nix, leaving the interactive
-        # allowlist untouched). Identity export rides the fish wrapper
-        # function, same as claude/codex panes.
+        # template passes --model, a v1 flag the v2 root CLI no longer has —
+        # panes die at launch on it, and per-pane model specs are gone with
+        # it (bare --oc=N falls through to opencode.json's default). Swarm
+        # panes need --standalone (v2's shared daemon would run every pane's
+        # tools under one env — per-pane AGENT_NAME dies with it) and --auto
+        # (auto-approve; explicit deny policies and the dcg bridge still
+        # apply). Identity export rides the fish wrapper function, same as
+        # claude/codex panes.
         if ! ${pkgs.gnugrep}/bin/grep -qE '^oc = ' "$cfg"; then
-          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --agent flywheel{{if .Model}} --model {{shellQuote .Model}}{{end}}'" "$cfg"
+          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --auto'" "$cfg"
         fi
         # ntm's dcg/rch integrations inject a CLAUDE_CODE_HOOKS env blob of
         # nested-quoted JSON into every claude launch line. rch (remote

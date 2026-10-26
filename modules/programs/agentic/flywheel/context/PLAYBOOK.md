@@ -84,11 +84,12 @@ ntm spawn <project> --cc=2 --cod=2      # start small; scale after a clean wave
 Agent specs take `N:model:effort`, and flags accumulate for mixed swarms:
 ```
 ntm spawn <project> --cc=4:claude-sonnet-5-5:high --cod=2:gpt-6-sol:high
-ntm spawn <project> --oc=2:openrouter/z-ai/glm-5.3-flash --cod=2
+ntm spawn <project> --oc=2 --cod=2
 ```
-opencode panes (`--oc`) are natively multi-provider: their model ids carry
-the provider prefix (`openrouter/<vendor>/<model>`), and a bare `--oc=N`
-falls through to opencode's configured default.
+opencode panes (`--oc`) take no inline model: the v2 CLI dropped the
+--model flag, so every oc pane runs opencode's configured default
+(currently openrouter/z-ai/glm-5.3-flash). Change the default in
+opencode.json to move the whole oc fleet.
 Slash-bearing model ids route through OpenRouter (key file at
 `~/.config/openrouter/key`) while slashless ids stay on the Anthropic
 seat — mix freely per pane:

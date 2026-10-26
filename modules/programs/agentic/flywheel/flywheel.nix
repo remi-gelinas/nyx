@@ -274,30 +274,13 @@
           ntm = ntmSkill;
         };
         settings = {
-          # Swarm panes launch with --agent flywheel (seeded into ntm's oc
-          # template): full autonomy for workers without loosening the
-          # interactive allowlist in opencode.nix. dcg (bridged by the plugin
-          # below) stays the destructive-command backstop for both.
-          agents.flywheel = {
-            mode = "primary";
-            permissions = [
-              {
-                action = "shell";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "edit";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "webfetch";
-                resource = "*";
-                effect = "allow";
-              }
-            ];
-          };
+          # Swarm autonomy comes from --auto in ntm's seeded oc template
+          # (auto-approve everything not explicitly denied; the v2 root CLI
+          # has no --agent flag for a profile-based split). Explicit deny
+          # policies still apply under --auto, and dcg (bridged by the plugin
+          # below) stays the destructive-command backstop. The interactive
+          # allowlist in opencode.nix is untouched.
+          #
           # Stop-frontier loop, pane identity injection, post-compact
           # reminder, dcg bridge, liveness sentinel. The dir must contain the
           # entry module — opencode skips single-file plugin paths.
