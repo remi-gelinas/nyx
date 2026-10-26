@@ -22,11 +22,11 @@
           # the generated config.
           providers.openrouter.settings.apiKey = "{file:${config.home.homeDirectory}/.config/openrouter/key}";
 
-          # Same autonomy floor as the claude-code allowlist: dependency
-          # installs and local git writes must not stall sessions on approval
-          # prompts. Pushes are deliberately absent — the Git context rules
-          # govern them. A bare prefix only matches the bare command, so each
-          # prefix gets both forms.
+          # Autonomy floor for interactive sessions: dependency installs and
+          # local git writes must not stall on approval prompts. Pushes are
+          # deliberately absent — the Git context rules govern them. (Swarm
+          # panes run --auto and bypass this entirely.) A bare prefix only
+          # matches the bare command, so each prefix gets both forms.
           permissions =
             let
               prefixes = [
@@ -65,7 +65,7 @@
             ]) prefixes;
         };
 
-        skills.dendritic-nix = ../claude-code/_skills/dendritic-nix;
+        skills.dendritic-nix = ./_skills/dendritic-nix;
       };
     };
 }

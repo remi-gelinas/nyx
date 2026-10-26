@@ -5,10 +5,10 @@
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
       riderLicense = import ../_rider-license.nix;
 
-      # ntm shells out to tmux and to the agent CLIs (claude/codex/gemini) at
-      # runtime. tmux is wrapped onto its PATH from nixpkgs; the agent CLIs
-      # are deliberately left off the wrapper PATH so ntm resolves whichever
-      # ones the user's own session already provides.
+      # ntm shells out to tmux and to the agent CLI (opencode) at runtime.
+      # tmux is wrapped onto its PATH from nixpkgs; the agent CLI is
+      # deliberately left off the wrapper PATH so ntm resolves whichever
+      # one the user's own session already provides.
       # v1.31.0's go.mod requires go >= 1.26.5; the 26.05 and unstable pins
       # both carry 1.26.4, master 1.26.5.
       ntm = pkgs.buildGoModule.override { go = pkgs.master.go; } {
@@ -45,10 +45,10 @@
         ${ntm}/bin/ntm shell fish | source
       '';
 
-      # Two seeded sections; ntm's config is user-owned and ntm writes to it
-      # (`ntm config set`), so these are seed-appends like the codex config,
-      # not a store symlink — each section is added only when the file lacks
-      # it, otherwise the user's settings are left alone.
+      # Seeded sections; ntm's config is user-owned and ntm writes to it
+      # (`ntm config set`), so these are seed-appends, not a store symlink —
+      # each section is added only when the file lacks it, otherwise the
+      # user's settings are left alone.
       #
       # [recovery]: spawn-time "smart session recovery" builds its context
       # (agent-mail inbox + reservations, beads, checkpoints) under a
@@ -58,13 +58,9 @@
       # unreliable, and the flywheel doesn't need spawn injection anyway:
       # fresh agents pull work from the bead frontier.
       #
-      # [agents]: ntm's compiled-in codex template defaults
-      # model_reasoning_effort to "ultra", and that explicit -c flag
-      # overrides the sol/high defaults in ~/.codex/config.toml on every
-      # spawn. Same template as upstream with the effort default set to
-      # high; an explicit --cod=N:model:effort spec still wins. (codex's
-      # separate fast_mode feature flag is disabled via the codex config
-      # seed in agent-mail.nix — effort and fast are independent knobs.)
+      # [agents]: opencode is the only harness. The oc launch line is added by
+      # the per-key insert below (so it also lands on a pre-existing [agents]
+      # section); this seed just creates the header on a fresh config.
       home.activation.ntmConfigSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         cfg="$HOME/.config/ntm/config.toml"
         recovery=${
@@ -78,7 +74,6 @@
           pkgs.writeText "ntm-agents.toml" ''
 
             [agents]
-            codex = '{{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT="$(cat {{shellQuote .SystemPromptFile}})" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default "gpt-6-sol")}} -c model_reasoning_effort={{shellQuote (.ReasoningEffort | default "high")}} -c model_reasoning_summary_format=experimental --search'
           ''
         }
         integrations=${
@@ -93,35 +88,12 @@
         }
         contextLimits=${
           pkgs.writeText "ntm-context-limits.toml" ''
-            "claude-fable-5-1" = 1000000
-            "anthropic/claude-fable-5.1" = 1000000
-            "claude-opus-5-5" = 1000000
-            "anthropic/claude-opus-5.5" = 1000000
-            "claude-sonnet-5-5" = 1000000
-            "anthropic/claude-sonnet-5.5" = 1000000
-            "gpt-6-astra" = 1050000
-            "openai/gpt-6-astra" = 1050000
-            "gpt-6-luna" = 1050000
-            "openai/gpt-6-luna" = 1050000
-            "gpt-6-sol" = 1050000
-            "gpt-6.1-sol" = 1050000
-            "openai/gpt-6.1-sol" = 1050000
-            "grok-4.7" = 500000
-            "x-ai/grok-4.7" = 500000
-            "deepseek/deepseek-v4.1-flash" = 1048576
-            "z-ai/glm-5.3" = 1048576
-            "z-ai/glm-5.3-flash" = 1048576
             "openrouter/z-ai/glm-5.3" = 1048576
             "openrouter/z-ai/glm-5.3-flash" = 1048576
             "openrouter/anthropic/claude-opus-5.5" = 1000000
+            "openrouter/anthropic/claude-fable-5.1" = 1000000
+            "openrouter/openai/gpt-6.1-sol" = 1050000
             "openrouter/deepseek/deepseek-v4.1-flash" = 1048576
-          ''
-        }
-        claudeAliases=${
-          pkgs.writeText "ntm-claude-aliases.toml" ''
-            "deepseek-v4.1-flash-nitro" = "deepseek/deepseek-v4.1-flash:nitro"
-            "glm-5.3-nitro" = "z-ai/glm-5.3:nitro"
-            "glm-5.3-flash-nitro" = "z-ai/glm-5.3-flash:nitro"
           ''
         }
         run mkdir -p "$HOME/.config/ntm"
@@ -133,38 +105,32 @@
           run sh -c 'cat "$1" >> "$2"' _ "$agents" "$cfg"
         fi
         # The [agents] section seed above only fires on a file that lacks the
-        # header, so new keys need per-key inserts. ntm's compiled-in oc
-        # template passes --model, a v1 flag the v2 root CLI no longer has —
-        # panes die at launch on it, and per-pane model specs are gone with
-        # it (bare --oc=N falls through to opencode.json's default). Swarm
-        # panes need --standalone (v2's shared daemon would run every pane's
-        # tools under one env — per-pane AGENT_NAME dies with it) and --auto
-        # (auto-approve; explicit deny policies and the dcg bridge still
-        # apply). Identity export rides the fish wrapper function, same as
-        # claude/codex panes.
+        # header, so the oc key is a per-key insert (covers a pre-existing
+        # [agents] too). ntm's compiled-in oc template passes --model, a v1
+        # flag the v2 root CLI no longer has — panes die at launch on it, and
+        # per-pane model specs are gone with it (bare --oc=N falls through to
+        # opencode.json's default). Swarm panes need --standalone (v2's shared
+        # daemon would run every pane's tools under one env — per-pane
+        # AGENT_NAME dies with it) and --auto (auto-approve; explicit deny
+        # policies and the dcg bridge still apply). Identity export rides the
+        # fish opencode wrapper function.
         if ! ${pkgs.gnugrep}/bin/grep -qE '^oc = ' "$cfg"; then
           run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --auto'" "$cfg"
         fi
-        # ntm's dcg/rch integrations inject a CLAUDE_CODE_HOOKS env blob of
-        # nested-quoted JSON into every claude launch line. rch (remote
-        # compilation offload) is not packaged here, so its hook would invoke
-        # a missing binary on every Bash call, and dcg is already wired
-        # globally through settings.json — the injection only bloats the
-        # typed command past what panes reliably parse. Spawns with these
-        # off launch clean; with them on, panes died at the prompt.
+        # ntm's dcg/rch integrations inject a hooks env blob into agent launch
+        # lines. rch (remote compilation offload) is not packaged here, so its
+        # hook would invoke a missing binary on every Bash call, and dcg runs
+        # through the opencode plugin's execute.before bridge — the injection
+        # only bloats the typed command past what panes reliably parse. Spawns
+        # with these off launch clean; with them on, panes died at the prompt.
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[integrations' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$integrations" "$cfg"
         fi
-        # v1.31.0's registry books claude-fable-5 at 200k (claude-fable-5-1
-        # inherits it by prefix match) and carries no entry for the
-        # vendor-prefixed slug spawn ids keep through OpenRouter; fable
-        # actually serves 1M (OpenRouter lists anthropic/claude-fable-5.1 at
-        # 1000000). It has no xAI entries at all, so Grok ids fall to the
-        # 128k default. context_limits overrides win over registry built-ins.
-        # Unlike the other seeds this one is per-key: the section is created
-        # once, then every key the file lacks is inserted under its header,
-        # so models added later still land. A key the user already has keeps
-        # its value.
+        # ntm's registry has no entries for the vendor-prefixed slugs opencode
+        # runs through OpenRouter, so their windows fall to the 128k default
+        # without these overrides. Per-key: the section is created once, then
+        # every key the file lacks is inserted under its header, so models
+        # added later still land. A key the user already has keeps its value.
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[models\.context_limits\]' "$cfg"; then
           run sh -c 'printf "\n[models.context_limits]\n" >> "$1"' _ "$cfg"
         fi
@@ -175,22 +141,6 @@
             run ${pkgs.gnused}/bin/sed -i "/^\[models\.context_limits\]/a $line" "$cfg"
           fi
         done < "$contextLimits"
-        # The spawn spec is N:model:effort split on ':', so a routing variant
-        # typed inline (--cc=2:z-ai/glm-5.3:nitro) lands as the effort and
-        # the variant is lost. Aliases resolve after the split, so variant
-        # slugs ride in as alias targets (--cc=2:glm-5.3-nitro). Seeded
-        # per-key like context_limits; ntm merges these over its built-in
-        # aliases rather than replacing them.
-        if ! ${pkgs.gnugrep}/bin/grep -q '^\[models\.claude\]' "$cfg"; then
-          run sh -c 'printf "\n[models.claude]\n" >> "$1"' _ "$cfg"
-        fi
-        while IFS= read -r line; do
-          key=''${line%% = *}
-          [ -n "$key" ] || continue
-          if ! ${pkgs.gnugrep}/bin/grep -qF -- "$key = " "$cfg"; then
-            run ${pkgs.gnused}/bin/sed -i "/^\[models\.claude\]/a $line" "$cfg"
-          fi
-        done < "$claudeAliases"
       '';
     };
 }

@@ -12,7 +12,7 @@
       # The lease guard's hook reads AGENT_NAME strictly from the commit env
       # (exit 2 without it), but ntm assigns per-pane identity in its own
       # table and never exports it. Identity therefore has to be derived when
-      # the AGENT PROCESS starts — the claude/codex launch wrappers call this
+      # the AGENT PROCESS starts — the opencode launch wrapper calls this
       # and every git commit inherits the env. Fronting the installed hook
       # with a wrapper instead is unsalvageable: the guard's chain-runner
       # unconditionally executes `pre-commit.orig`, so the first reinstall
@@ -25,7 +25,7 @@
       # covers human commits, which then only block on another agent's lease.
       # The poll is capped at 5s because `ntm mapping` cannot distinguish a
       # manual tmux session from a not-yet-registered swarm pane (both report
-      # zero agents, exit 0) — a manual-tmux claude launch pays at most that.
+      # zero agents, exit 0) — a manual-tmux opencode launch pays at most that.
       agentEnvFunction = ''
         if set -q TMUX_PANE; and command -q ntm; and command -q tmux
           set -l session (tmux display-message -p '#{session_name}' 2>/dev/null)
@@ -57,9 +57,9 @@
       # message. That also keeps this clear of agent-mail's lease guard, which
       # only ever writes pre-commit and pre-push — no chaining, no wrapper, and
       # none of the recursion the guard's chain-runner invites.
-      # Plain sh with PATH tools rather than pinned store paths: unlike the
-      # claude hooks, this file persists on disk between switches and must not
-      # break when a store path is collected.
+      # Plain sh with PATH tools rather than pinned store paths: this file
+      # persists on disk between switches and must not break when a store
+      # path is garbage-collected.
       commitMsgHook = pkgs.writeTextFile {
         name = "flywheel-commit-msg";
         executable = true;
@@ -96,19 +96,10 @@
         '';
       };
 
-      # The flywheel loop, pane-identity injection, and post-compact
-      # reread-AGENTS reminder were Claude Stop/SessionStart hooks when Claude
-      # was a swarm worker. The swarm now runs on opencode + codex; opencode's
-      # plugin owns all three (reading the same .beads/flywheel-pause
-      # sentinels flywheel-pause/-resume drop), and codex panes stop between
-      # beads and are nudged via ntm --robot-send. Interactive Claude keeps
-      # its CLAUDE.md context, skills, and tool allowlist below, but no longer
-      # carries the swarm-worker hooks.
-
-      # Codex is plain nixpkgs (MIT-clean vendor tooling), pulled from
-      # nixpkgs-master for the current release. ntm can then spawn both claude
-      # and codex panes. Auth is a one-time interactive `codex login` by the
-      # user; this only delivers the binary.
+      # The flywheel loop, pane-identity injection, post-compact reminder, and
+      # dcg bridge all live in opencode's plugin now (it reads the same
+      # .beads/flywheel-pause sentinels flywheel-pause/-resume drop). opencode
+      # is the only harness.
 
       brSources = import ./br/_sources.nix { inherit (pkgs) fetchFromGitHub; };
       bvSources = import ./bv/_sources.nix { inherit (pkgs) fetchFromGitHub; };
@@ -154,13 +145,11 @@
       '';
 
       # Global operator context = the methodology rules plus the repo-agnostic
-      # tool reference, delivered to both harnesses' user-level instruction
-      # files. Nothing here is committed into a project.
+      # tool reference, delivered to opencode's user-level AGENTS.md. Nothing
+      # here is committed into a project.
       globalContext = builtins.readFile ./context/flywheel.md + "\n" + builtins.readFile ./context/tool-reference.md;
     in
     {
-      home.packages = [ pkgs.master.codex ];
-
       # Enables agent-mail's per-agent git-identity features. The Rust guard
       # itself no longer gates on this (it is active unless
       # FILE_RESERVATIONS_ENFORCEMENT_ENABLED is explicitly false), but the
@@ -172,12 +161,6 @@
       # slug.
       home.sessionVariables.GIT_IDENTITY_ENABLED = "1";
 
-      programs.claude-code.skills = {
-        br = brSkill;
-        bv = bvSkill;
-        ntm = ntmSkill;
-      };
-
       programs.opencode = {
         skills = {
           br = brSkill;
@@ -186,15 +169,15 @@
         };
         settings = {
           # Swarm autonomy comes from --auto in ntm's seeded oc template
-          # (auto-approve everything not explicitly denied; the v2 root CLI
-          # has no --agent flag for a profile-based split). Explicit deny
+          # (auto-approve everything not explicitly denied). Explicit deny
           # policies still apply under --auto, and dcg (bridged by the plugin
           # below) stays the destructive-command backstop. The interactive
           # allowlist in opencode.nix is untouched.
           #
-          # Stop-frontier loop, pane identity injection, post-compact
-          # reminder, dcg bridge, liveness sentinel. The dir must contain the
-          # entry module — opencode skips single-file plugin paths.
+          # The plugin carries the stop-frontier loop, pane identity
+          # injection, post-compact reminder, dcg bridge, and liveness
+          # sentinel. The dir must contain the entry module — opencode skips
+          # single-file plugin paths.
           plugins = [ "${./_opencode-plugin}" ];
         };
       };
@@ -261,7 +244,7 @@
           cp -f ${commitMsgHook} .git/hooks/commit-msg
           chmod +x .git/hooks/commit-msg
         end
-        echo "Board, agent-mail project, lease guard, and commit-message guard ready. Agent identity is exported at claude/codex/opencode launch; the stock guard hooks run untouched."
+        echo "Board, agent-mail project, lease guard, and commit-message guard ready. Agent identity is exported at opencode launch; the stock guard hooks run untouched."
       '';
 
       programs.fish.functions.flywheel-agent-env = agentEnvFunction;
@@ -303,54 +286,11 @@
         echo "Resumed: agents are held on the loop again. Nudge idle panes (ntm --robot-send) to restart them."
       '';
 
-      # OpenRouter gateway switch, called by the claude launch wrapper with
-      # the model about to be requested. OpenRouter slugs carry a slash
-      # (moonshotai/kimi-k3, z-ai/glm-5.3, anthropic/claude-sonnet-5.5 for
-      # Claude on OpenRouter billing); plain Anthropic ids don't, and leave
-      # the Enterprise session untouched. OpenRouter's Anthropic-native
-      # endpoint means claude runs unmodified — this only points it there
-      # and presents the key, per-process. Fails loudly when the key file is
-      # missing: launching a pane on the wrong billing silently is worse
-      # than not launching it.
-      programs.fish.functions.flywheel-openrouter-env = ''
-        if not string match -q '*/*' -- $argv[1]
-          # Clear, don't just skip: set -gx from an earlier OpenRouter launch
-          # persists in the shell, and a later seat-model launch would
-          # silently inherit the gateway.
-          set -e ANTHROPIC_BASE_URL
-          set -e ANTHROPIC_AUTH_TOKEN
-          set -e CLAUDE_CODE_MAX_OUTPUT_TOKENS
-          return 0
-        end
-        set -l keyfile ~/.config/openrouter/key
-        if not test -r $keyfile
-          echo "flywheel: model $argv[1] routes via OpenRouter, but $keyfile is missing (create it with the API key as its only line, chmod 600)." >&2
-          return 1
-        end
-        set -gx ANTHROPIC_BASE_URL https://openrouter.ai/api
-        set -gx ANTHROPIC_AUTH_TOKEN (head -n1 $keyfile | string trim)
-        # claude caps output for ids it doesn't recognize at 32k by default,
-        # and 128k is its hard ceiling for them. Every slug we route serves
-        # at least 128k out, so long responses stop dying at 32k.
-        set -gx CLAUDE_CODE_MAX_OUTPUT_TOKENS 128000
-        # set -e returns 4 when the variable was already unset, and the
-        # caller treats any nonzero status as abort-the-launch — end true.
-        set -e ANTHROPIC_API_KEY
-        return 0
-      '';
-
-      # codex has no launch wrapper of its own (claude's lives in
-      # claude-code.nix and calls the same helper); without this a codex
-      # pane's commits carry no AGENT_NAME and the guard refuses them.
-      programs.fish.functions.codex = ''
-        flywheel-agent-env
-        command codex $argv
-      '';
-
-      # Same deal for opencode. Panes must also run --standalone (seeded into
-      # ntm's oc template): the v2 shared daemon owns tool execution, so an
-      # attached pane's shell and git commits would inherit the daemon's env —
-      # one AGENT_NAME for every pane — instead of its own.
+      # opencode's launch wrapper exports the pane's ntm identity before
+      # launch. Panes also run --standalone (seeded into ntm's oc template):
+      # the v2 shared daemon owns tool execution, so an attached pane's shell
+      # and git commits would inherit the daemon's env — one AGENT_NAME for
+      # every pane — instead of its own.
       programs.fish.functions.opencode = ''
         flywheel-agent-env
         command opencode $argv
@@ -358,42 +298,20 @@
 
       # Human fallback: the guard hook hard-refuses any commit without
       # AGENT_NAME. Interactive shells get the username; agent panes override
-      # it at claude/codex launch. A human holds no leases under this name,
-      # so their commits pass unless they touch a file an agent has reserved
-      # — which is exactly when they should be stopped too.
+      # it at opencode launch. A human holds no leases under this name, so
+      # their commits pass unless they touch a file an agent has reserved —
+      # which is exactly when they should be stopped too.
       programs.fish.interactiveShellInit = ''
         set -q AGENT_NAME; or set -gx AGENT_NAME (id -un)
       '';
 
-      # The bd allows vanished with the beads module; these are the flywheel
-      # tool CLIs agents drive. Concatenates with the claude-code core list.
-      # ntm and cass are kept broad deliberately (single-user machine,
-      # experiment friction outweighs the narrower-allowlist benefit) per
-      # review. Agents drive agent-mail primarily through the MCP server, but
-      # `am` (the Rust robot CLI) is allowed too: it is agent-oriented by
-      # design and the server's own error messages direct callers to `am`
-      # commands.
-      programs.claude-code.settings.permissions.allow = map (p: "Bash(${p}:*)") [
-        "br"
-        "bv"
-        "ntm"
-        "ubs"
-        "dcg"
-        "cass"
-        "am"
-      ];
-
-      programs.claude-code.settings.skipDangerousModePermissionPrompt = true;
-
-      # Global operating rules + tool reference for every harness. Claude Code
-      # renders context into ~/.claude/CLAUDE.md; Codex reads ~/.codex/AGENTS.md;
-      # opencode reads ~/.config/opencode/AGENTS.md (via programs.opencode).
-      # All are user-level and machine-local — a solo adopter's flywheel
-      # knowledge reaches their own agents on every repo without committing
-      # anything, so shared repos and their other contributors are untouched.
-      programs.claude-code.context = globalContext;
+      # Global operating rules + tool reference, delivered to opencode's
+      # user-level AGENTS.md (via programs.opencode.context → the
+      # ~/.config/opencode/AGENTS.md the module writes). Machine-local — a solo
+      # adopter's flywheel knowledge reaches their own agents on every repo
+      # without committing anything, so shared repos and their other
+      # contributors are untouched. (opencode allows bash by default, so the
+      # br/bv/ntm/ubs/dcg/cass/am CLIs need no explicit allowlist.)
       programs.opencode.context = globalContext;
-      home.file.".codex/AGENTS.md".text = globalContext;
-      home.file."${config.programs.claude-code.configDir}/CLAUDE.md".force = true;
     };
 }

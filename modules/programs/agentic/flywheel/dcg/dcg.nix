@@ -57,22 +57,11 @@
         hook_timeout_ms = 3000
       '';
 
-      # dcg reads the pending Bash command from the PreToolUse JSON on stdin
-      # and emits its own permissionDecision JSON; a destructive command comes
-      # back as a deny (e.g. ruleId core.git:reset-hard). The harness owns the
-      # deny contract — nothing here to configure beyond pointing at the binary.
-      # opencode has no shell-hook surface; the flywheel opencode plugin feeds
-      # dcg the same stdin protocol from its tool execute.before hook.
-      programs.claude-code.settings.hooks.PreToolUse = [
-        {
-          matcher = "Bash|PowerShell";
-          hooks = [
-            {
-              type = "command";
-              command = lib.getExe dcg;
-            }
-          ];
-        }
-      ];
+      # dcg reads the pending command from a PreToolUse JSON on stdin and
+      # emits its own permissionDecision JSON; a destructive command comes
+      # back as a deny (e.g. ruleId core.git:reset-hard). opencode has no
+      # shell-hook surface, so the flywheel opencode plugin feeds dcg this
+      # same stdin protocol from its tool execute.before hook — nothing to
+      # wire here beyond delivering the binary and its config.
     };
 }

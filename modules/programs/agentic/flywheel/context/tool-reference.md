@@ -1,8 +1,7 @@
 # Flywheel tool reference
 
 Repo-agnostic reference for the flywheel toolchain. This is global
-operator context (delivered to `~/.claude/CLAUDE.md`,
-`~/.codex/AGENTS.md`, and `~/.config/opencode/AGENTS.md`), not
+operator context (delivered to `~/.config/opencode/AGENTS.md`), not
 committed into any project — it applies to every session while the
 flywheel harness is active.
 
@@ -161,17 +160,14 @@ around a finding — fix the root cause it's pointing at.
 
 ## dcg
 
-Hook that intercepts destructive shell commands before they execute,
-explains why the command is dangerous, and suggests a safer
-alternative. A dcg deny arrives as a PreToolUse denial on the Bash
-call — treat it like any other tool denial: stop, read the
-explanation, and either take the suggested alternative or ask the
-human. Do not retry the same command through different quoting or
-escaping to route around a denial. In opencode the same deny arrives
-as a failed shell tool call carrying dcg's explanation — the rule is
-identical. Advisory and fail-open; active in Claude Code and opencode
-sessions, Codex agents are unguarded — do not treat this as a
-security boundary.
+Intercepts destructive shell commands before they execute, explains why
+the command is dangerous, and suggests a safer alternative. opencode's
+plugin bridges dcg on the shell tool's execute.before hook: a deny
+arrives as a failed shell tool call carrying dcg's explanation. Treat it
+like any other tool denial — stop, read the explanation, and either take
+the suggested alternative or ask the human. Do not retry the same command
+through different quoting or escaping to route around a denial. Advisory
+and fail-open — do not treat it as a security boundary.
 
 ## cass
 
@@ -194,10 +190,8 @@ session at once.
 
 Indexed knowledge graph over the repo. Query it **before** Grep/Glob
 for any code exploration — graph hits are ~500 tokens vs ~80K for a
-grep survey. MCP server name `codebase-memory`; the harness prefixes
-tool names (Claude Code:
-`mcp__plugin_claude-code-home-manager_codebase-memory__<tool>`,
-opencode: `codebase-memory_<tool>`).
+grep survey. MCP server name `codebase-memory`; opencode prefixes its
+tool names `codebase-memory_<tool>`.
 
 If the project is not indexed, `index_repository` first. Then:
 

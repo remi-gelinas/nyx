@@ -29,17 +29,10 @@
         meta.mainProgram = "codebase-memory-mcp";
       };
 
-      # Hooks harvested from the upstream installer (its imperative install
-      # is replaced by this module; re-harvest on version bumps). The
-      # augmenter never blocks: it only adds graph context to searches and
-      # exits 0 silently on any failure. v0.9.0 handles Grep/Glob only
-      # (hook_augment.c); upstream's newer "post-Read coverage" hook should
-      # be harvested and registered on PostToolUse/Read at the next bump.
-      searchAugmenter = pkgs.writeShellScript "cbm-search-augmenter" ''
-        ${codebase-memory-mcp}/bin/codebase-memory-mcp hook-augment 2>/dev/null
-        exit 0
-      '';
-
+      # Injected into opencode's global context so agents reach for the graph
+      # before grep. opencode has no stdout-injection session hook, so this
+      # rides the context file rather than a SessionStart hook; the live
+      # Grep/Glob augmentation is the opencode plugin's job (hook-augment).
       discoveryProtocol = ''
         CRITICAL - Code Discovery Protocol:
         1. ALWAYS use codebase-memory-mcp tools FIRST for ANY code exploration:
@@ -53,18 +46,6 @@
            always Read a file before editing it.
         3. If a project is not indexed yet, run index_repository FIRST.
       '';
-
-      sessionReminder = pkgs.writeShellScript "cbm-session-reminder" ''
-        cat << 'REMINDER'
-        ${discoveryProtocol}
-        REMINDER
-      '';
-
-      subagentReminder = pkgs.writeShellScript "cbm-subagent-reminder" ''
-        printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SubagentStart","additionalContext":"Code discovery: prefer codebase-memory-mcp tools (search_graph, trace_path, get_code_snippet, query_graph, get_architecture, search_code) over grep/file-read for navigating code. Use Grep/Glob/Read for text, configs, and non-code files."}}'
-      '';
-
-      hookOf = command: [ { hooks = [ { type = "command"; inherit command; } ]; } ];
     in
     {
       home.packages = [ codebase-memory-mcp ];
@@ -79,53 +60,21 @@
         run ${codebase-memory-mcp}/bin/codebase-memory-mcp config set auto_index true
       '';
 
-      # stdio MCP server: spawned per session by Claude Code, no daemon
+      # Local (stdio) MCP server: spawned per session by opencode, no daemon
       # needed. The per-repo SQLite index lives in ~/.cache and is shared
       # across sessions; incremental git-sync runs inside the server.
-      programs.claude-code = {
-        mcpServers.codebase-memory = {
-          type = "stdio";
-          command = "${codebase-memory-mcp}/bin/codebase-memory-mcp";
-        };
-
-        # manage_adr is a single-document store, not a numbered registry.
-        # Sessions that "recorded" ADRs through it recorded nothing usable.
-        # Decisions live on the br board. Deny the tool structurally —
-        # prose prohibitions drift.
-        settings.permissions.deny = [
-          "mcp__plugin_claude-code-home-manager_codebase-memory__manage_adr"
-        ];
-
-        skills.codebase-memory = ./_skills/codebase-memory;
-
-        settings.hooks = {
-          PreToolUse = [
-            {
-              matcher = "Grep|Glob";
-              hooks = [
-                {
-                  type = "command";
-                  command = "${searchAugmenter}";
-                }
-              ];
-            }
-          ];
-          SessionStart = hookOf "${sessionReminder}";
-          SubagentStart = hookOf "${subagentReminder}";
-        };
-      };
-
       programs.opencode = {
         settings = {
           mcp.servers.codebase-memory = {
             type = "local";
             command = [ "${codebase-memory-mcp}/bin/codebase-memory-mcp" ];
           };
-          # Same structural manage_adr deny as claude's permissions.deny;
-          # opencode names MCP tools <server>_<tool>. tool.use lives in the
-          # top-level policies list (allow/deny), not the permissions ruleset
-          # (whose actions are per-tool like shell/edit and whose unknown
-          # actions match nothing).
+          # manage_adr is a single-document store, not a numbered registry.
+          # Sessions that "recorded" ADRs through it recorded nothing usable.
+          # Decisions live on the br board. Deny structurally — prose
+          # prohibitions drift. tool.use lives in the top-level policies list
+          # (allow/deny), not the permissions ruleset (whose actions are
+          # per-tool like shell/edit and whose unknown actions match nothing).
           policies = [
             {
               action = "tool.use";
@@ -133,14 +82,11 @@
               effect = "deny";
             }
           ];
-          # Grep/Glob search augmenter (opencode port of the PreToolUse hook)
-          # plus its liveness sentinel.
+          # Grep/Glob search augmenter (runs hook-augment) plus its liveness
+          # sentinel.
           plugins = [ "${./_opencode-plugin}" ];
         };
         skills.codebase-memory = ./_skills/codebase-memory;
-        # Claude gets the discovery protocol via the SessionStart hook above;
-        # opencode has no stdout-injection hook, so it rides the global
-        # context file instead.
         context = discoveryProtocol;
       };
     };

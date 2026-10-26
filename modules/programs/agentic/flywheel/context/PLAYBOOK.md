@@ -23,10 +23,11 @@ testing obligations. Plans are long by design (the guide's run thousands of
 lines); resist summarizing.
 
 **Competing plans.** Give the same intent brief to independent sessions on
-different model families — e.g. a `claude` session, a `codex` session, or
-an `opencode` session on a third family, in separate panes, neither seeing
-the other's output. Independence is the point; do not let one critique
-before both have drafted.
+different model families — spawn separate opencode panes and switch one
+to another model with the in-session model picker (e.g. a GLM pane and a
+Claude-via-OpenRouter pane), neither seeing the other's output.
+Independence is the point; do not let one critique before both have
+drafted.
 
 **Synthesis.** Feed both plans to a fresh session:
 > You have two independent plans for the same system. Produce a single
@@ -79,45 +80,26 @@ converts. The transition is a scheduled work step, not an afterthought.
 
 **Launch.** From the repo (after `flywheel-init` has run once):
 ```
-ntm spawn <project> --cc=2 --cod=2      # start small; scale after a clean wave
+ntm spawn <project> --oc=2      # start small; scale after a clean wave
 ```
-Agent specs take `N:model:effort`, and flags accumulate for mixed swarms:
-```
-ntm spawn <project> --cc=4:claude-sonnet-5-5:high --cod=2:gpt-6-sol:high
-ntm spawn <project> --oc=2 --cod=2
-```
-opencode panes (`--oc`) take no inline model: the v2 CLI dropped the
---model flag, so every oc pane runs opencode's configured default
-(currently openrouter/z-ai/glm-5.3-flash). Change the default in
-opencode.json to move the whole oc fleet.
-Slash-bearing model ids route through OpenRouter (key file at
-`~/.config/openrouter/key`) while slashless ids stay on the Anthropic
-seat — mix freely per pane:
-```
-ntm spawn <project> --cc=2:claude-sonnet-5-5:high --cc=2:moonshotai/kimi-k3:high
-```
-`anthropic/claude-*` slugs are the same Claude models on OpenRouter
-billing. Give OpenRouter models the worker beads, not the subtle ones —
-tool-calling fidelity varies off-Anthropic.
+opencode is the only harness (`--oc`). Panes take no inline model: the v2
+CLI dropped the `--model` flag, so every pane runs opencode's configured
+default (currently `openrouter/z-ai/glm-5.3-flash`). To move the whole
+fleet to another model, change the default in `opencode.json`; all traffic
+is OpenRouter (key file at `~/.config/openrouter/key`). Give cheaper
+OpenRouter models the worker beads and a stronger one the subtle beads —
+tool-calling fidelity varies by model.
 
-Routing variants (`:nitro` for fastest provider) can't be typed inline:
-the spec splits on `:`, so `z-ai/glm-5.3:nitro` would land as the
-effort. Use the seeded aliases instead — `deepseek-v4.1-flash-nitro`,
-`glm-5.3-nitro`, `glm-5.3-flash-nitro`:
-```
-ntm spawn <project> --cc=2:deepseek-v4.1-flash-nitro:high
-```
-
-Identity is automatic: AGENT_NAME/BR_ACTOR export at claude/codex/opencode
-launch from the pane's ntm-assigned name, and the lease guard reads it at
-commit time. Confirm a pane's identity with `ntm mapping` (opencode also
-injects a session-start identity line); a pane with no AGENT_NAME has no
-identity — investigate before it commits.
+Identity is automatic: AGENT_NAME/BR_ACTOR export at opencode launch from
+the pane's ntm-assigned name, and the lease guard reads it at commit time.
+Confirm a pane's identity with `ntm mapping` (the plugin also injects a
+session-start identity line); a pane with no AGENT_NAME has no identity —
+investigate before it commits.
 
 The harness holds agents on the work loop while the frontier has ready
-beads or attention-needing mail (claude: a stop hook; opencode: an
-idle re-prompt; codex panes do stop — nudge via `ntm --robot-send`). To wind a swarm down deliberately
-(assess the horizon, end of day), run `flywheel-pause` in the repo —
+beads or attention-needing mail: opencode's plugin re-prompts an idle pane.
+To wind a swarm down deliberately (assess the horizon, end of day), run
+`flywheel-pause` in the repo —
 agents finish their current turn and stop; `flywheel-pause <Name>…`
 stops just those agents while the rest keep looping. `flywheel-resume
 [Name…]` re-arms the loop (nudge idle panes to restart them).

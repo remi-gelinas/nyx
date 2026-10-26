@@ -4,7 +4,6 @@
     imports = with self.modules.homeManager; [
       nord-ghostty
       nord-zed
-      nord-claude-code
       nord-opencode
     ];
   };

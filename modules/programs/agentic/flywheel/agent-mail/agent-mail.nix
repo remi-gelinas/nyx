@@ -118,63 +118,14 @@
           set -gx GIT_IDENTITY_ENABLED 1
         '';
 
-        # Claude Code reaches the running service over the streamable HTTP
-        # transport; no auth header since localhost is exempted from bearer
-        # auth on the loopback bind.
-        programs.claude-code.mcpServers.mcp-agent-mail = {
-          type = "http";
-          url = mcpUrl;
-        };
-
-        # opencode reaches the same service; v2 nests servers under
-        # mcp.servers and calls the HTTP transport "remote".
+        # opencode reaches the running service over the streamable HTTP
+        # transport; v2 nests servers under mcp.servers and calls it "remote".
+        # No auth header since localhost is exempted from bearer auth on the
+        # loopback bind.
         programs.opencode.settings.mcp.servers.mcp-agent-mail = {
           type = "remote";
           url = mcpUrl;
         };
-
-        # Codex reads MCP servers from ~/.codex/config.toml, but it also
-        # WRITES that file to persist per-directory trust — and codex >=0.119
-        # hard-crashes when the file is a read-only store symlink (openai/codex
-        # #17593). So this is seeded as a codex-owned writable file, not a
-        # home.file symlink: install the MCP block on a fresh machine, append
-        # it to a pre-existing config that lacks it, rewrite the retired
-        # Python endpoint (/api/) to the Rust one (/mcp/) in place, and
-        # otherwise leave the file (and codex's own trust writes) untouched.
-        # Appending the section at end keeps any top-level keys ahead of it,
-        # satisfying codex's notify-before-sections rule.
-        home.activation.codexConfigSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          cfg="$HOME/.codex/config.toml"
-          snippet=${
-            pkgs.writeText "codex-agent-mail.toml" ''
-              [mcp_servers.mcp_agent_mail]
-              url = "${mcpUrl}"
-            ''
-          }
-          features=${
-            pkgs.writeText "codex-features.toml" ''
-
-              [features]
-              fast_mode = false
-            ''
-          }
-          [ -L "$cfg" ] && run rm -- "$cfg"
-          run mkdir -p "$HOME/.codex"
-          if [ ! -e "$cfg" ]; then
-            run install -m600 "$snippet" "$cfg"
-          elif ! ${pkgs.gnugrep}/bin/grep -q 'mcp_servers.mcp_agent_mail' "$cfg"; then
-            run sh -c 'cat "$1" >> "$2"' _ "$snippet" "$cfg"
-          elif ${pkgs.gnugrep}/bin/grep -q '127.0.0.1:8765/api/' "$cfg"; then
-            run ${pkgs.gnused}/bin/sed -i 's|127.0.0.1:8765/api/|127.0.0.1:8765/mcp/|' "$cfg"
-          fi
-          # fast_mode is a codex feature flag (independent of reasoning
-          # effort) that defaults on; swarm agents should run deliberate.
-          # Seed the disable only when the key is absent so a hand-run
-          # `codex features enable fast_mode` sticks.
-          if ! ${pkgs.gnugrep}/bin/grep -q 'fast_mode' "$cfg"; then
-            run sh -c 'cat "$1" >> "$2"' _ "$features" "$cfg"
-          fi
-        '';
       }
       (lib.mkIf pkgs.stdenv.isDarwin (
         {
