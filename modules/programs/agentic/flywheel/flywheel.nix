@@ -96,103 +96,14 @@
         '';
       };
 
-      # The flywheel loop's mechanical backstop: swarm agents finish a bead
-      # and end their turn instead of pulling the next one, and prompt-level
-      # "keep going" instructions decay with context. This Stop hook blocks
-      # the stop while the frontier still has claimable work, feeding back
-      # the loop directive. Strictly gated: swarm identities only (hooks
-      # inherit the claude process env, so AGENT_NAME set by the launch
-      # wrapper and distinct from the username marks a swarm pane), flywheel
-      # repos only (.beads/ in the session cwd), and fail-open on any error
-      # — a broken hook must never wedge a session that wants to stop. The
-      # loop terminates because the frontier drains; a stuck agent facing a
-      # non-empty frontier keeps getting nudged, which is visible on the
-      # dashboard and is the operator's cue, not a silent stall. Codex has
-      # no hook mechanism, so codex panes still stop; nudge those over
-      # ntm --robot-send.
-      stopFrontierHook = pkgs.writeShellScript "flywheel-stop-frontier" ''
-        INPUT=$(cat)
-        [ -z "$AGENT_NAME" ] && exit 0
-        [ "$AGENT_NAME" = "$(id -un)" ] && exit 0
-        dir=$(printf '%s' "$INPUT" | ${pkgs.jq}/bin/jq -r '.cwd // empty' 2>/dev/null)
-        [ -n "$dir" ] || dir=$PWD
-        [ -d "$dir/.beads" ] || exit 0
-        # Operator pause: flywheel-pause drops these sentinels so agents may
-        # finish their current bead and stop (assess-the-horizon moments,
-        # wind-downs); flywheel-resume lifts them. Repo-wide sentinel stops
-        # everyone; the name-scoped one stops a single agent. Without an
-        # override the loop fights any human stand-down instruction.
-        [ -e "$dir/.beads/flywheel-pause" ] && exit 0
-        [ -e "$dir/.beads/flywheel-pause-$AGENT_NAME" ] && exit 0
-        if command -v br >/dev/null 2>&1; then
-          ready=$(cd "$dir" && br ready --json 2>/dev/null | ${pkgs.jq}/bin/jq 'length' 2>/dev/null) || ready=0
-        else
-          ready=0
-        fi
-        case "$ready" in ''''''|*[!0-9]*) ready=0;; esac
-        if [ "$ready" -gt 0 ]; then
-          ${pkgs.jq}/bin/jq -cn --arg n "$ready" '{decision:"block", reason:("The bead frontier has " + $n + " ready item(s); the flywheel loop is not done. Fetch your agent-mail inbox and handle anything pending, then claim the next bead per the claim protocol (br ready --json or bv --robot-next, br update --claim, announce over mail, reserve files) and work it. Stop only when the frontier is empty and your inbox is clear.")}'
-          exit 0
-        fi
-        # Frontier empty — attention-needing mail still keeps the loop
-        # alive: an ack you owe may be exactly what unblocks someone else's
-        # bead. The signal is the server's own attention views (ack-required
-        # + urgent-unread), read-only resources over loopback MCP — the CLI's
-        # --unread filter does not surface fresh mail, and the plain inbox
-        # view is recent-N, which would block forever on any mail history.
-        # Deliberately NOT counted: normal-priority FYI messages — swarms
-        # would never sleep.
-        pending=0
-        for view in ack-required urgent-unread; do
-          n=$(${pkgs.curl}/bin/curl -s -m 5 -X POST ${mcpUrl} \
-            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
-            -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/read\",\"params\":{\"uri\":\"resource://views/$view/$AGENT_NAME?project=$dir\"}}" \
-            2>/dev/null | ${pkgs.jq}/bin/jq -r '.result.contents[0].text | fromjson | .count // 0' 2>/dev/null) || n=0
-          case "$n" in ''''''|*[!0-9]*) n=0;; esac
-          pending=$((pending + n))
-        done
-        if [ "$pending" -gt 0 ]; then
-          ${pkgs.jq}/bin/jq -cn --arg n "$pending" '{decision:"block", reason:("Your agent-mail inbox has " + $n + " message(s) needing attention (ack-required or urgent). Fetch your inbox, acknowledge and act on each — a blocked peer may be waiting on you. Then re-check the frontier; stop only when it is empty and nothing awaits your ack.")}'
-          exit 0
-        fi
-        exit 0
-      '';
-
-      # The launch wrapper exports AGENT_NAME into the process, but the model
-      # never sees env vars — an agent that doesn't know its name calls
-      # register_agent bare and mints a fresh identity, which then splits it
-      # from its own reservations (held under the new name, commits under
-      # AGENT_NAME) until the guard blocks it on its own leases. SessionStart
-      # stdout is injected into context, so this makes the identity line the
-      # operating rules reference actually exist. Same gates as the stop
-      # hook: swarm identities only, fail-open.
-      sessionIdentityHook = pkgs.writeShellScript "flywheel-session-identity" ''
-        INPUT=$(cat)
-        [ -z "$AGENT_NAME" ] && exit 0
-        [ "$AGENT_NAME" = "$(id -un)" ] && exit 0
-        printf 'You are agent %s — the identity ntm assigned this pane. agent-mail already has this name registered and AGENT_NAME/BR_ACTOR are exported in your environment. Use exactly this name everywhere: register_agent (an idempotent profile update — pass name=%s), every mail call, file reservations, and br --actor. Never omit the name or let one be auto-generated.\n' "$AGENT_NAME" "$AGENT_NAME"
-        exit 0
-      '';
-
-      # Harvested from post_compact_reminder's installer (the script it embeds
-      # in render_hook_script, default TEMPLATE_DEFAULT message) rather than
-      # running the installer: shebang comes from writeShellScript, jq is
-      # pinned to the store path. Fires on SessionStart source="compact" and
-      # prints the reread-AGENTS.md reminder into the fresh context.
-      postCompactReminder = pkgs.writeShellScript "claude-post-compact-reminder" ''
-        set -e
-        MESSAGE='🚨 IMPORTANT: Context was just compacted. STOP. You MUST:
-        1. Read AGENTS.md NOW
-        2. Confirm by briefly stating what key rules/conventions you found
-
-        Do not proceed with any task until you have read the file and confirmed what you learned.'
-        INPUT=$(cat)
-        SOURCE=$(printf '%s' "$INPUT" | ${pkgs.jq}/bin/jq -r '.source // empty' 2>/dev/null || true)
-        if [ "$SOURCE" = "compact" ]; then
-          printf '%s\n' "$MESSAGE"
-        fi
-        exit 0
-      '';
+      # The flywheel loop, pane-identity injection, and post-compact
+      # reread-AGENTS reminder were Claude Stop/SessionStart hooks when Claude
+      # was a swarm worker. The swarm now runs on opencode + codex; opencode's
+      # plugin owns all three (reading the same .beads/flywheel-pause
+      # sentinels flywheel-pause/-resume drop), and codex panes stop between
+      # beads and are nudged via ntm --robot-send. Interactive Claude keeps
+      # its CLAUDE.md context, skills, and tool allowlist below, but no longer
+      # carries the swarm-worker hooks.
 
       # Codex is plain nixpkgs (MIT-clean vendor tooling), pulled from
       # nixpkgs-master for the current release. ntm can then spawn both claude
@@ -350,15 +261,16 @@
           cp -f ${commitMsgHook} .git/hooks/commit-msg
           chmod +x .git/hooks/commit-msg
         end
-        echo "Board, agent-mail project, lease guard, and commit-message guard ready. Agent identity is exported at claude/codex launch; the stock guard hooks run untouched."
+        echo "Board, agent-mail project, lease guard, and commit-message guard ready. Agent identity is exported at claude/codex/opencode launch; the stock guard hooks run untouched."
       '';
 
       programs.fish.functions.flywheel-agent-env = agentEnvFunction;
 
-      # Operator switch for the stop hook's work loop: paused, agents finish
-      # their current turn and are allowed to stop even with a non-empty
-      # frontier. Run from the repo root. No args = the whole swarm; agent
-      # names = just those agents (everyone else keeps looping).
+      # Operator switch for the work loop (opencode's plugin reads these
+      # sentinels): paused, agents finish their current turn and are allowed
+      # to stop even with a non-empty frontier. Run from the repo root. No
+      # args = the whole swarm; agent names = just those agents (everyone
+      # else keeps looping).
       programs.fish.functions.flywheel-pause = ''
         if not test -d .beads
           echo "Not a flywheel repo (no .beads/ here)."
@@ -388,7 +300,7 @@
           return 0
         end
         rm $sentinels
-        echo "Resumed: the stop hook holds agents on the loop again. Nudge idle panes (ntm --robot-send) to restart them."
+        echo "Resumed: agents are held on the loop again. Nudge idle panes (ntm --robot-send) to restart them."
       '';
 
       # OpenRouter gateway switch, called by the claude launch wrapper with
@@ -469,55 +381,6 @@
         "dcg"
         "cass"
         "am"
-      ];
-
-      # Every pane shows its swarm identity at a glance: the statusline
-      # command inherits the claude process env, and the launch wrapper put
-      # AGENT_NAME there. ntm's own pane titles are a fixed session__cc_N
-      # convention, so this is the surface that can carry the agent-mail
-      # name. Outside a swarm it degrades to the model name alone.
-      programs.claude-code.settings.statusLine = {
-        type = "command";
-        command = "${pkgs.writeShellScript "flywheel-statusline" ''
-          input=$(cat)
-          model=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.model.display_name // .model.id // ""' 2>/dev/null)
-          if [ -n "$AGENT_NAME" ] && [ "$AGENT_NAME" != "$(id -un)" ]; then
-            printf '⛭ %s · %s' "$AGENT_NAME" "$model"
-          else
-            printf '%s' "$model"
-          fi
-        ''}";
-      };
-
-      programs.claude-code.settings.hooks.SessionStart = [
-        {
-          matcher = "compact";
-          hooks = [
-            {
-              type = "command";
-              command = "${postCompactReminder}";
-            }
-          ];
-        }
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${sessionIdentityHook}";
-            }
-          ];
-        }
-      ];
-
-      programs.claude-code.settings.hooks.Stop = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${stopFrontierHook}";
-            }
-          ];
-        }
       ];
 
       programs.claude-code.settings.skipDangerousModePermissionPrompt = true;

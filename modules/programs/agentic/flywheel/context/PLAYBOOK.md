@@ -110,10 +110,9 @@ ntm spawn <project> --cc=2:deepseek-v4.1-flash-nitro:high
 
 Identity is automatic: AGENT_NAME/BR_ACTOR export at claude/codex/opencode
 launch from the pane's ntm-assigned name, and the lease guard reads it at
-commit time. Claude's statusline shows it (`⛭ Name · Model`); a claude pane
-whose statusline shows a bare model name has no identity — investigate
-before it commits. opencode has no statusline — check `ntm mapping` or the
-session-start identity line instead.
+commit time. Confirm a pane's identity with `ntm mapping` (opencode also
+injects a session-start identity line); a pane with no AGENT_NAME has no
+identity — investigate before it commits.
 
 The harness holds agents on the work loop while the frontier has ready
 beads or attention-needing mail (claude: a stop hook; opencode: an
