@@ -1,8 +1,18 @@
 {
-  flake.modules.darwin.onepassword = {
-    programs._1password.enable = true;
-    programs._1password-gui.enable = true;
-  };
+  flake.modules.darwin.onepassword =
+    { pkgs, ... }:
+    {
+      programs._1password.enable = true;
+      programs._1password-gui = {
+        enable = true;
+        # nix-darwin rsyncs this package's 1Password.app into /Applications on
+        # activation. Stable's _1password-gui is 8.12.21, older than the vault
+        # data a newer build already migrated — so the app refuses to open
+        # ("saved data appears newer than this version"). master tracks the
+        # current release (8.12.42); pin the GUI there until stable catches up.
+        package = pkgs.master._1password-gui;
+      };
+    };
 
   flake.modules.homeManager.onepassword =
     { pkgs, lib, ... }:
