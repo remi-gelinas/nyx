@@ -4,5 +4,6 @@
     claude-code
     codebase-memory
     flywheel
+    opencode
   ];
 }

@@ -267,6 +267,44 @@
         ntm = ntmSkill;
       };
 
+      programs.opencode = {
+        skills = {
+          br = brSkill;
+          bv = bvSkill;
+          ntm = ntmSkill;
+        };
+        settings = {
+          # Swarm panes launch with --agent flywheel (seeded into ntm's oc
+          # template): full autonomy for workers without loosening the
+          # interactive allowlist in opencode.nix. dcg (bridged by the plugin
+          # below) stays the destructive-command backstop for both.
+          agents.flywheel = {
+            mode = "primary";
+            permissions = [
+              {
+                action = "shell";
+                resource = "*";
+                effect = "allow";
+              }
+              {
+                action = "edit";
+                resource = "*";
+                effect = "allow";
+              }
+              {
+                action = "webfetch";
+                resource = "*";
+                effect = "allow";
+              }
+            ];
+          };
+          # Stop-frontier loop, pane identity injection, post-compact
+          # reminder, dcg bridge, liveness sentinel. The dir must contain the
+          # entry module — opencode skips single-file plugin paths.
+          plugins = [ "${./_opencode-plugin}" ];
+        };
+      };
+
       # Per-repo mechanical bootstrap only — no committed context. The tool
       # blurbs and methodology live in global operator context (see below), so
       # a solo adopter never writes a flywheel-flavored AGENTS.md into a shared
@@ -414,6 +452,15 @@
         command codex $argv
       '';
 
+      # Same deal for opencode. Panes must also run --standalone (seeded into
+      # ntm's oc template): the v2 shared daemon owns tool execution, so an
+      # attached pane's shell and git commits would inherit the daemon's env —
+      # one AGENT_NAME for every pane — instead of its own.
+      programs.fish.functions.opencode = ''
+        flywheel-agent-env
+        command opencode $argv
+      '';
+
       # Human fallback: the guard hook hard-refuses any commit without
       # AGENT_NAME. Interactive shells get the username; agent panes override
       # it at claude/codex launch. A human holds no leases under this name,
@@ -492,12 +539,14 @@
 
       programs.claude-code.settings.skipDangerousModePermissionPrompt = true;
 
-      # Global operating rules + tool reference for both harnesses. Claude Code
-      # renders context into ~/.claude/CLAUDE.md; Codex reads ~/.codex/AGENTS.md.
-      # Both are user-level and machine-local — a solo adopter's flywheel
+      # Global operating rules + tool reference for every harness. Claude Code
+      # renders context into ~/.claude/CLAUDE.md; Codex reads ~/.codex/AGENTS.md;
+      # opencode reads ~/.config/opencode/AGENTS.md (via programs.opencode).
+      # All are user-level and machine-local — a solo adopter's flywheel
       # knowledge reaches their own agents on every repo without committing
       # anything, so shared repos and their other contributors are untouched.
       programs.claude-code.context = globalContext;
+      programs.opencode.context = globalContext;
       home.file.".codex/AGENTS.md".text = globalContext;
       home.file."${config.programs.claude-code.configDir}/CLAUDE.md".force = true;
     };

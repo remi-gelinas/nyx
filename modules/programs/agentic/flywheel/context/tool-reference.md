@@ -1,9 +1,10 @@
 # Flywheel tool reference
 
 Repo-agnostic reference for the flywheel toolchain. This is global
-operator context (delivered to `~/.claude/CLAUDE.md` and
-`~/.codex/AGENTS.md`), not committed into any project — it applies to
-every session while the flywheel harness is active.
+operator context (delivered to `~/.claude/CLAUDE.md`,
+`~/.codex/AGENTS.md`, and `~/.config/opencode/AGENTS.md`), not
+committed into any project — it applies to every session while the
+flywheel harness is active.
 
 Your agent identity is the name ntm assigned you — the "You are agent
 <name>" line injected at session start; ntm has already registered you
@@ -166,8 +167,10 @@ alternative. A dcg deny arrives as a PreToolUse denial on the Bash
 call — treat it like any other tool denial: stop, read the
 explanation, and either take the suggested alternative or ask the
 human. Do not retry the same command through different quoting or
-escaping to route around a denial. Advisory, fail-open, and
-Claude-Code-only — Codex agents are unguarded; do not treat this as a
+escaping to route around a denial. In opencode the same deny arrives
+as a failed shell tool call carrying dcg's explanation — the rule is
+identical. Advisory and fail-open; active in Claude Code and opencode
+sessions, Codex agents are unguarded — do not treat this as a
 security boundary.
 
 ## cass
@@ -191,8 +194,10 @@ session at once.
 
 Indexed knowledge graph over the repo. Query it **before** Grep/Glob
 for any code exploration — graph hits are ~500 tokens vs ~80K for a
-grep survey. MCP server name `codebase-memory`; runtime tools are
-`mcp__plugin_claude-code-home-manager_codebase-memory__<tool>`.
+grep survey. MCP server name `codebase-memory`; the harness prefixes
+tool names (Claude Code:
+`mcp__plugin_claude-code-home-manager_codebase-memory__<tool>`,
+opencode: `codebase-memory_<tool>`).
 
 If the project is not indexed, `index_repository` first. Then:
 

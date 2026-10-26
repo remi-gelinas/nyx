@@ -55,7 +55,7 @@ Closing a bead is the middle of your loop, not the end of your session:
    claim it per the protocol below.
 4. Only when the frontier is empty AND your inbox is clear are you done.
 
-Do not end your turn between beads. A harness hook re-opens sessions
+Do not end your turn between beads. The harness re-prompts sessions
 that stop while ready work exists — save the round-trip and loop
 yourself.
 

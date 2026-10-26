@@ -126,6 +126,13 @@
           url = mcpUrl;
         };
 
+        # opencode reaches the same service; v2 nests servers under
+        # mcp.servers and calls the HTTP transport "remote".
+        programs.opencode.settings.mcp.servers.mcp-agent-mail = {
+          type = "remote";
+          url = mcpUrl;
+        };
+
         # Codex reads MCP servers from ~/.codex/config.toml, but it also
         # WRITES that file to persist per-directory trust — and codex >=0.119
         # hard-crashes when the file is a read-only store symlink (openai/codex

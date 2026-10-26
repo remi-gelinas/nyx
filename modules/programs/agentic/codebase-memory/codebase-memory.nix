@@ -40,8 +40,7 @@
         exit 0
       '';
 
-      sessionReminder = pkgs.writeShellScript "cbm-session-reminder" ''
-        cat << 'REMINDER'
+      discoveryProtocol = ''
         CRITICAL - Code Discovery Protocol:
         1. ALWAYS use codebase-memory-mcp tools FIRST for ANY code exploration:
            - search_graph(name_pattern/label/qn_pattern) to find functions/classes/routes
@@ -53,6 +52,11 @@
         2. Use Grep/Glob/Read freely for text, configs, non-code files, and
            always Read a file before editing it.
         3. If a project is not indexed yet, run index_repository FIRST.
+      '';
+
+      sessionReminder = pkgs.writeShellScript "cbm-session-reminder" ''
+        cat << 'REMINDER'
+        ${discoveryProtocol}
         REMINDER
       '';
 
@@ -109,6 +113,32 @@
           SessionStart = hookOf "${sessionReminder}";
           SubagentStart = hookOf "${subagentReminder}";
         };
+      };
+
+      programs.opencode = {
+        settings = {
+          mcp.servers.codebase-memory = {
+            type = "local";
+            command = [ "${codebase-memory-mcp}/bin/codebase-memory-mcp" ];
+          };
+          # Same structural manage_adr deny as claude's permissions.deny;
+          # opencode names MCP tools <server>_<tool>.
+          permissions = [
+            {
+              action = "tool.use";
+              resource = "codebase-memory_manage_adr";
+              effect = "deny";
+            }
+          ];
+          # Grep/Glob search augmenter (opencode port of the PreToolUse hook)
+          # plus its liveness sentinel.
+          plugins = [ "${./_opencode-plugin}" ];
+        };
+        skills.codebase-memory = ./_skills/codebase-memory;
+        # Claude gets the discovery protocol via the SessionStart hook above;
+        # opencode has no stdout-injection hook, so it rides the global
+        # context file instead.
+        context = discoveryProtocol;
       };
     };
 }

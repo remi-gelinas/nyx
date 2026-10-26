@@ -23,9 +23,10 @@ testing obligations. Plans are long by design (the guide's run thousands of
 lines); resist summarizing.
 
 **Competing plans.** Give the same intent brief to independent sessions on
-different model families — here: a `claude` session and a `codex` session,
-in separate panes, neither seeing the other's output. Independence is the
-point; do not let one critique before both have drafted.
+different model families — e.g. a `claude` session, a `codex` session, or
+an `opencode` session on a third family, in separate panes, neither seeing
+the other's output. Independence is the point; do not let one critique
+before both have drafted.
 
 **Synthesis.** Feed both plans to a fresh session:
 > You have two independent plans for the same system. Produce a single
@@ -83,7 +84,11 @@ ntm spawn <project> --cc=2 --cod=2      # start small; scale after a clean wave
 Agent specs take `N:model:effort`, and flags accumulate for mixed swarms:
 ```
 ntm spawn <project> --cc=4:claude-sonnet-5-5:high --cod=2:gpt-6-sol:high
+ntm spawn <project> --oc=2:openrouter/z-ai/glm-5.3-flash --cod=2
 ```
+opencode panes (`--oc`) are natively multi-provider: their model ids carry
+the provider prefix (`openrouter/<vendor>/<model>`), and a bare `--oc=N`
+falls through to opencode's configured default.
 Slash-bearing model ids route through OpenRouter (key file at
 `~/.config/openrouter/key`) while slashless ids stay on the Anthropic
 seat — mix freely per pane:
@@ -102,14 +107,16 @@ effort. Use the seeded aliases instead — `deepseek-v4.1-flash-nitro`,
 ntm spawn <project> --cc=2:deepseek-v4.1-flash-nitro:high
 ```
 
-Identity is automatic: AGENT_NAME/BR_ACTOR export at claude/codex launch
-from the pane's ntm-assigned name, the statusline shows it
-(`⛭ Name · Model`), and the lease guard reads it at commit time. A pane
+Identity is automatic: AGENT_NAME/BR_ACTOR export at claude/codex/opencode
+launch from the pane's ntm-assigned name, and the lease guard reads it at
+commit time. Claude's statusline shows it (`⛭ Name · Model`); a claude pane
 whose statusline shows a bare model name has no identity — investigate
-before it commits.
+before it commits. opencode has no statusline — check `ntm mapping` or the
+session-start identity line instead.
 
-A stop hook holds agents on the work loop while the frontier has ready
-beads or attention-needing mail. To wind a swarm down deliberately
+The harness holds agents on the work loop while the frontier has ready
+beads or attention-needing mail (claude: a stop hook; opencode: an
+idle re-prompt; codex panes do stop — nudge via `ntm --robot-send`). To wind a swarm down deliberately
 (assess the horizon, end of day), run `flywheel-pause` in the repo —
 agents finish their current turn and stop; `flywheel-pause <Name>…`
 stops just those agents while the rest keep looping. `flywheel-resume

@@ -61,6 +61,8 @@
       # and emits its own permissionDecision JSON; a destructive command comes
       # back as a deny (e.g. ruleId core.git:reset-hard). The harness owns the
       # deny contract — nothing here to configure beyond pointing at the binary.
+      # opencode has no shell-hook surface; the flywheel opencode plugin feeds
+      # dcg the same stdin protocol from its tool execute.before hook.
       programs.claude-code.settings.hooks.PreToolUse = [
         {
           matcher = "Bash|PowerShell";

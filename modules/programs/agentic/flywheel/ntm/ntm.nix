@@ -111,6 +111,10 @@
             "deepseek/deepseek-v4.1-flash" = 1048576
             "z-ai/glm-5.3" = 1048576
             "z-ai/glm-5.3-flash" = 1048576
+            "openrouter/z-ai/glm-5.3" = 1048576
+            "openrouter/z-ai/glm-5.3-flash" = 1048576
+            "openrouter/anthropic/claude-opus-5.5" = 1000000
+            "openrouter/deepseek/deepseek-v4.1-flash" = 1048576
           ''
         }
         claudeAliases=${
@@ -127,6 +131,17 @@
         fi
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[agents\]' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$agents" "$cfg"
+        fi
+        # The [agents] section seed above only fires on a file that lacks the
+        # header, so new keys need per-key inserts. ntm's compiled-in oc
+        # template launches bare `opencode`; swarm panes need --standalone
+        # (v2's shared daemon would run every pane's tools under one env —
+        # per-pane AGENT_NAME dies with it) and --agent flywheel (the
+        # allow-all worker profile from flywheel.nix, leaving the interactive
+        # allowlist untouched). Identity export rides the fish wrapper
+        # function, same as claude/codex panes.
+        if ! ${pkgs.gnugrep}/bin/grep -qE '^oc = ' "$cfg"; then
+          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --agent flywheel{{if .Model}} --model {{shellQuote .Model}}{{end}}'" "$cfg"
         fi
         # ntm's dcg/rch integrations inject a CLAUDE_CODE_HOOKS env blob of
         # nested-quoted JSON into every claude launch line. rch (remote
