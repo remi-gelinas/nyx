@@ -106,16 +106,23 @@
         fi
         # The [agents] section seed above only fires on a file that lacks the
         # header, so the oc key is a per-key insert (covers a pre-existing
-        # [agents] too). ntm's compiled-in oc template passes --model, a v1
-        # flag the v2 root CLI no longer has — panes die at launch on it, and
-        # per-pane model specs are gone with it (bare --oc=N falls through to
-        # opencode.json's default). Swarm panes need --standalone (v2's shared
-        # daemon would run every pane's tools under one env — per-pane
+        # [agents] too). ntm's compiled-in oc template passes --model, a flag
+        # the v2 root CLI no longer has — so the model rides --fw-model, a
+        # sentinel the fish wrapper strips into FLYWHEEL_OC_MODEL for the
+        # plugin (the v2 TUI can't take a model at launch; the plugin applies
+        # it via session.switchModel). Bare --oc=N omits it and falls through
+        # to opencode.json's default. Swarm panes need --standalone (v2's
+        # shared daemon would run every pane's tools under one env — per-pane
         # AGENT_NAME dies with it) and --auto (auto-approve; explicit deny
-        # policies and the dcg bridge still apply). Identity export rides the
-        # fish opencode wrapper function.
-        if ! ${pkgs.gnugrep}/bin/grep -qE '^oc = ' "$cfg"; then
-          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --auto'" "$cfg"
+        # policies and the dcg bridge still apply). Identity + model export
+        # ride the fish opencode wrapper.
+        # Reconcile, not just insert: the oc line is entirely ours (no user
+        # tuning), so replace an existing one to pick up template changes
+        # across switches; insert under the header on a fresh config.
+        if ${pkgs.gnugrep}/bin/grep -qE '^oc = ' "$cfg"; then
+          run ${pkgs.gnused}/bin/sed -i "s|^oc = .*|oc = 'opencode --standalone --auto{{if .Model}} --fw-model {{shellQuote .Model}}{{end}}'|" "$cfg"
+        else
+          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --auto{{if .Model}} --fw-model {{shellQuote .Model}}{{end}}'" "$cfg"
         fi
         # ntm's dcg/rch integrations inject a hooks env blob into agent launch
         # lines. rch (remote compilation offload) is not packaged here, so its

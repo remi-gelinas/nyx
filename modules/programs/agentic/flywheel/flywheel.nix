@@ -291,9 +291,26 @@
       # the v2 shared daemon owns tool execution, so an attached pane's shell
       # and git commits would inherit the daemon's env — one AGENT_NAME for
       # every pane — instead of its own.
+      #
+      # --fw-model <id> is a sentinel the oc template adds for --oc=N:model:
+      # opencode's v2 TUI has no --model flag, so the model rides an env var
+      # the plugin reads (FLYWHEEL_OC_MODEL → session.switchModel). Strip it
+      # here — opencode would reject the unknown flag — and export it so the
+      # standalone server and its plugin inherit it, same path as AGENT_NAME.
       programs.fish.functions.opencode = ''
         flywheel-agent-env
-        command opencode $argv
+        set -l args
+        set -l i 1
+        while test $i -le (count $argv)
+          if test "$argv[$i]" = --fw-model
+            set -gx FLYWHEEL_OC_MODEL $argv[(math $i + 1)]
+            set i (math $i + 2)
+          else
+            set -a args $argv[$i]
+            set i (math $i + 1)
+          end
+        end
+        command opencode $args
       '';
 
       # Human fallback: the guard hook hard-refuses any commit without

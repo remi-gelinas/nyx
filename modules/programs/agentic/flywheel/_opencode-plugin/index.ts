@@ -82,6 +82,29 @@ export default Plugin.define({
       )
     } catch {}
 
+    // Per-pane model pin. The v2 TUI dropped --model and ignores the
+    // configured default on new sessions (opencode #58216), so ntm cannot set
+    // a pane's model by flag. ntm passes it as FLYWHEEL_OC_MODEL (via the fish
+    // wrapper from --oc=N:model); switchModel applies it. Once per session —
+    // so a deliberate in-TUI model switch afterward sticks — and only when the
+    // env names a model, leaving bare interactive opencode alone. Model id is
+    // provider/rest, e.g. openrouter/z-ai/glm-5.3 → {providerID:"openrouter",
+    // id:"z-ai/glm-5.3"}.
+    const pinModel = process.env.FLYWHEEL_OC_MODEL
+    if (pinModel && pinModel.includes("/")) {
+      const slash = pinModel.indexOf("/")
+      const model = { providerID: pinModel.slice(0, slash), id: pinModel.slice(slash + 1) }
+      const pinned = new Set<string>()
+      ctx.session.hook("prompt", async (event: any) => {
+        const sessionID = event?.sessionID
+        if (!sessionID || pinned.has(sessionID)) return
+        pinned.add(sessionID)
+        try {
+          await ctx.session.switchModel({ sessionID, model })
+        } catch {}
+      })
+    }
+
     // dcg bridge: dcg has no opencode support, but its stdin protocol is
     // harness-agnostic Claude hook JSON. Deny by throwing — the model sees
     // the explanation. Advisory and fail-open, like every dcg integration.

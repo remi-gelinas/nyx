@@ -22,12 +22,11 @@ initial markdown plan covering architecture, workflows, edge cases, and
 testing obligations. Plans are long by design (the guide's run thousands of
 lines); resist summarizing.
 
-**Competing plans.** Give the same intent brief to independent sessions on
-different model families — spawn separate opencode panes and switch one
-to another model with the in-session model picker (e.g. a GLM pane and a
-Claude-via-OpenRouter pane), neither seeing the other's output.
-Independence is the point; do not let one critique before both have
-drafted.
+**Competing plans.** Give the same intent brief to independent panes on
+different models — `ntm spawn <project> --oc=1:openrouter/z-ai/glm-5.3
+--oc=1:openrouter/anthropic/claude-opus-5.5`, neither seeing the other's
+output. Independence is the point; do not let one critique before both
+have drafted.
 
 **Synthesis.** Feed both plans to a fresh session:
 > You have two independent plans for the same system. Produce a single
@@ -81,14 +80,19 @@ converts. The transition is a scheduled work step, not an afterthought.
 **Launch.** From the repo (after `flywheel-init` has run once):
 ```
 ntm spawn <project> --oc=2      # start small; scale after a clean wave
+ntm spawn <project> --oc=2:openrouter/z-ai/glm-5.3-flash --oc=1:openrouter/anthropic/claude-opus-5.5
 ```
-opencode is the only harness (`--oc`). Panes take no inline model: the v2
-CLI dropped the `--model` flag, so every pane runs opencode's configured
-default (currently `openrouter/z-ai/glm-5.3-flash`). To move the whole
-fleet to another model, change the default in `opencode.json`; all traffic
-is OpenRouter (key file at `~/.config/openrouter/key`). Give cheaper
-OpenRouter models the worker beads and a stronger one the subtle beads —
-tool-calling fidelity varies by model.
+opencode is the only harness (`--oc`). A bare `--oc=N` runs opencode's
+configured default (`openrouter/z-ai/glm-5.3-flash`); `--oc=N:model` pins a
+model per pane. All traffic is OpenRouter (key file at
+`~/.config/openrouter/key`), so model ids are OpenRouter slugs
+(`openrouter/<vendor>/<model>`). Give cheaper models the worker beads and a
+stronger one the subtle beads — tool-calling fidelity varies by model.
+
+(The v2 TUI has no launch-time model flag — opencode #58216 — so ntm passes
+the model to the flywheel plugin, which applies it with session.switchModel
+on the pane's first prompt. Change the default in `opencode.json` to move
+the whole fleet at once.)
 
 Identity is automatic: AGENT_NAME/BR_ACTOR export at opencode launch from
 the pane's ntm-assigned name, and the lease guard reads it at commit time.
