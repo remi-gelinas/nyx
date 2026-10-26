@@ -2,9 +2,9 @@
   flake.modules.homeManager.languages =
     { pkgs, ... }:
     {
-      home.packages = with pkgs; [
-        bun
-        uv
+      home.packages = [
+        pkgs.bun
+        pkgs.master.uv
       ];
     };
 }
