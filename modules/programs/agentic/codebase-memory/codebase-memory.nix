@@ -122,11 +122,14 @@
             command = [ "${codebase-memory-mcp}/bin/codebase-memory-mcp" ];
           };
           # Same structural manage_adr deny as claude's permissions.deny;
-          # opencode names MCP tools <server>_<tool>.
-          permissions = [
+          # opencode names MCP tools <server>_<tool>. tool.use lives in the
+          # top-level policies list (allow/deny), not the permissions ruleset
+          # (whose actions are per-tool like shell/edit and whose unknown
+          # actions match nothing).
+          policies = [
             {
               action = "tool.use";
-              resource = "codebase-memory_manage_adr";
+              resource = "codebase-memory_manage_adr*";
               effect = "deny";
             }
           ];
