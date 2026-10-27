@@ -38,6 +38,10 @@
             # Nix owns onboarding choices. `omp setup` is interactive and
             # must not run during activation or intercept NTM's first prompt.
             startup.setupWizard = false;
+            # Throughput sorting is injected per model, without Nitro's
+            # additional priority endpoint eligibility.
+            providers.openrouterVariant = "default";
+            extensions = [ "${./_extensions/openrouter-routing}" ];
             # Native turn-scoped assertions, not the timed OpenCode plugin.
             power.sleepPrevention = "system";
 

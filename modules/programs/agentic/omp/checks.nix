@@ -14,7 +14,8 @@
       checks.omp-extensions = pkgs.runCommand "omp-extensions" { nativeBuildInputs = [ pkgs.bun ]; } ''
         cp -r ${../flywheel/_omp-extension} flywheel
         cp -r ${../codebase-memory/_omp-extension} codebase-memory
-        bun test flywheel/index.test.ts codebase-memory/index.test.ts
+        cp -r ${./_extensions/openrouter-routing} openrouter-routing
+        bun test flywheel/index.test.ts codebase-memory/index.test.ts openrouter-routing/index.test.ts
         touch $out
       '';
 
@@ -22,6 +23,7 @@
         assert cfg.programs.opencode.enable && cfg.programs.omp.enable;
         assert settings.modelRoles.default == cfg.programs.opencode.settings.model;
         assert !settings.startup.setupWizard;
+        assert settings.providers.openrouterVariant == "default";
         assert settings.tools.approval.eval == "deny";
         assert !settings.eval.js && !settings.eval.py && !settings.eval.autoProvision;
         assert settings.tools.approval.mcp__codebase_memory_manage_adr == "deny";
@@ -34,7 +36,8 @@
         assert settings.contextFiles.extra == [ "NYX.md" ];
         assert
           builtins.attrNames cfg.programs.omp.skills == builtins.attrNames cfg.programs.opencode.skills;
-        assert builtins.length settings.extensions == 2;
+        assert builtins.elem "${./_extensions/openrouter-routing}" settings.extensions;
+        assert builtins.length settings.extensions == 3;
         assert cfg.programs.omp.mcpServers.codebase-memory.type == "stdio";
         assert
           cfg.programs.omp.mcpServers.mcp-agent-mail.url
