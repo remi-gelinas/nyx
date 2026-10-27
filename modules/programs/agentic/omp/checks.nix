@@ -21,6 +21,7 @@
       checks.omp-config =
         assert cfg.programs.opencode.enable && cfg.programs.omp.enable;
         assert settings.modelRoles.default == cfg.programs.opencode.settings.model;
+        assert !settings.startup.setupWizard;
         assert settings.tools.approval.eval == "deny";
         assert !settings.eval.js && !settings.eval.py && !settings.eval.autoProvision;
         assert settings.tools.approval.mcp__codebase_memory_manage_adr == "deny";
