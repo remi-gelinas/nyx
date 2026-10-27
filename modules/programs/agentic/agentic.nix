@@ -4,6 +4,7 @@
     codebase-memory
     flywheel
     opencode
+    omp
     agent-caffeinate
   ];
 }

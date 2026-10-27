@@ -1,6 +1,11 @@
 {
   flake.modules.homeManager.flywheel =
-    { pkgs, lib, ... }:
+    {
+      config,
+      pkgs,
+      lib,
+      ...
+    }:
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
       riderLicense = import ../_rider-license.nix;
@@ -38,6 +43,14 @@
     {
       home.packages = [ ntm ];
 
+      # Reuse upstream's OMP readiness patterns and model/thinking arguments.
+      # Only the autonomy flag differs from its interactive launch template.
+      xdg.configFile."ntm/agents/omp.toml" = lib.mkIf config.programs.omp.enable {
+        source = pkgs.runCommand "ntm-omp.toml" { } ''
+          sed 's/command = "omp/command = "omp --yolo/' ${sources.ntm.src}/examples/agents/omp.toml > $out
+        '';
+      };
+
       # ntm's fish integration (command palette keybinding, completions,
       # session helpers) — upstream's documented `ntm shell fish | source`,
       # run once per interactive shell rather than hand-edited into config.fish.
@@ -58,44 +71,36 @@
       # unreliable, and the flywheel doesn't need spawn injection anyway:
       # fresh agents pull work from the bead frontier.
       #
-      # [agents]: opencode is the only harness. The oc launch line is added by
+      # [agents]: the oc launch line is added by
       # the per-key insert below (so it also lands on a pre-existing [agents]
       # section); this seed just creates the header on a fresh config.
       home.activation.ntmConfigSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         cfg="$HOME/.config/ntm/config.toml"
-        recovery=${
-          pkgs.writeText "ntm-recovery.toml" ''
+        recovery=${pkgs.writeText "ntm-recovery.toml" ''
 
-            [recovery]
-            auto_inject_on_spawn = false
-          ''
-        }
-        agents=${
-          pkgs.writeText "ntm-agents.toml" ''
+          [recovery]
+          auto_inject_on_spawn = false
+        ''}
+        agents=${pkgs.writeText "ntm-agents.toml" ''
 
-            [agents]
-          ''
-        }
-        integrations=${
-          pkgs.writeText "ntm-integrations.toml" ''
+          [agents]
+        ''}
+        integrations=${pkgs.writeText "ntm-integrations.toml" ''
 
-            [integrations.dcg]
-            enabled = false
+          [integrations.dcg]
+          enabled = false
 
-            [integrations.rch]
-            enabled = false
-          ''
-        }
-        contextLimits=${
-          pkgs.writeText "ntm-context-limits.toml" ''
-            "openrouter/z-ai/glm-5.3" = 1048576
-            "openrouter/z-ai/glm-5.3-flash" = 1048576
-            "openrouter/anthropic/claude-opus-5.5" = 1000000
-            "openrouter/anthropic/claude-fable-5.1" = 1000000
-            "openrouter/openai/gpt-6.1-sol" = 1050000
-            "openrouter/deepseek/deepseek-v4.1-flash" = 1048576
-          ''
-        }
+          [integrations.rch]
+          enabled = false
+        ''}
+        contextLimits=${pkgs.writeText "ntm-context-limits.toml" ''
+          "openrouter/z-ai/glm-5.3" = 1048576
+          "openrouter/z-ai/glm-5.3-flash" = 1048576
+          "openrouter/anthropic/claude-opus-5.5" = 1000000
+          "openrouter/anthropic/claude-fable-5.1" = 1000000
+          "openrouter/openai/gpt-6.1-sol" = 1050000
+          "openrouter/deepseek/deepseek-v4.1-flash" = 1048576
+        ''}
         run mkdir -p "$HOME/.config/ntm"
         [ -e "$cfg" ] || run touch "$cfg"
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[recovery\]' "$cfg"; then

@@ -89,5 +89,18 @@
         skills.codebase-memory = ./_skills/codebase-memory;
         context = discoveryProtocol;
       };
+
+      programs.omp = {
+        mcpServers.codebase-memory = {
+          type = "stdio";
+          command = "${codebase-memory-mcp}/bin/codebase-memory-mcp";
+        };
+        settings = {
+          extensions = [ "${./_omp-extension}" ];
+          tools.approval.mcp__codebase_memory_manage_adr = "deny";
+        };
+        skills.codebase-memory = ./_skills/codebase-memory;
+        context = discoveryProtocol;
+      };
     };
 }

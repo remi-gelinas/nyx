@@ -24,6 +24,11 @@
       url = "github:nix-community/home-manager/release-26.05";
     };
 
+    omp = {
+      url = "github:can1357/oh-my-pi";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     determinate = {
       url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
       inputs.nixpkgs.follows = "nixpkgs";

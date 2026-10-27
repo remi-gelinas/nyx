@@ -97,9 +97,8 @@
       };
 
       # The flywheel loop, pane-identity injection, post-compact reminder, and
-      # dcg bridge all live in opencode's plugin now (it reads the same
-      # .beads/flywheel-pause sentinels flywheel-pause/-resume drop). opencode
-      # is the only harness.
+      # dcg bridge live in each harness's plugin (both read the same
+      # .beads/flywheel-pause sentinels flywheel-pause/-resume drop).
 
       brSources = import ./br/_sources.nix { inherit (pkgs) fetchFromGitHub; };
       bvSources = import ./bv/_sources.nix { inherit (pkgs) fetchFromGitHub; };
@@ -147,7 +146,8 @@
       # Global operator context = the methodology rules plus the repo-agnostic
       # tool reference, delivered to opencode's user-level AGENTS.md. Nothing
       # here is committed into a project.
-      globalContext = builtins.readFile ./context/flywheel.md + "\n" + builtins.readFile ./context/tool-reference.md;
+      globalContext =
+        builtins.readFile ./context/flywheel.md + "\n" + builtins.readFile ./context/tool-reference.md;
     in
     {
       # Enables agent-mail's per-agent git-identity features. The Rust guard
@@ -180,6 +180,16 @@
           # single-file plugin paths.
           plugins = [ "${./_opencode-plugin}" ];
         };
+      };
+
+      programs.omp = {
+        skills = {
+          br = brSkill;
+          bv = bvSkill;
+          ntm = ntmSkill;
+        };
+        context = globalContext;
+        settings.extensions = [ "${./_omp-extension}" ];
       };
 
       # Per-repo mechanical bootstrap only — no committed context. The tool
@@ -248,6 +258,13 @@
       '';
 
       programs.fish.functions.flywheel-agent-env = agentEnvFunction;
+
+      # OMP owns its tool execution process; each pane inherits its own
+      # identity without OpenCode's standalone-server workaround.
+      programs.fish.functions.omp = ''
+        flywheel-agent-env
+        command omp $argv
+      '';
 
       # Operator switch for the work loop (opencode's plugin reads these
       # sentinels): paused, agents finish their current turn and are allowed

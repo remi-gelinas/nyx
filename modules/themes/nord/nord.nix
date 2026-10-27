@@ -5,6 +5,7 @@
       nord-ghostty
       nord-zed
       nord-opencode
+      nord-omp
     ];
   };
 }

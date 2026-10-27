@@ -1,7 +1,7 @@
 # Flywheel tool reference
 
 Repo-agnostic reference for the flywheel toolchain. This is global
-operator context (delivered to `~/.config/opencode/AGENTS.md`), not
+operator context (delivered to OpenCode's `AGENTS.md` and OMP's `NYX.md`), not
 committed into any project — it applies to every session while the
 flywheel harness is active.
 
@@ -161,9 +161,9 @@ around a finding — fix the root cause it's pointing at.
 ## dcg
 
 Intercepts destructive shell commands before they execute, explains why
-the command is dangerous, and suggests a safer alternative. opencode's
-plugin bridges dcg on the shell tool's execute.before hook: a deny
-arrives as a failed shell tool call carrying dcg's explanation. Treat it
+the command is dangerous, and suggests a safer alternative. Each harness's
+plugin feeds shell commands to dcg before execution. A deny
+arrives as a blocked tool call carrying dcg's explanation. Treat it
 like any other tool denial — stop, read the explanation, and either take
 the suggested alternative or ask the human. Do not retry the same command
 through different quoting or escaping to route around a denial. Advisory
@@ -190,8 +190,8 @@ session at once.
 
 Indexed knowledge graph over the repo. Query it **before** Grep/Glob
 for any code exploration — graph hits are ~500 tokens vs ~80K for a
-grep survey. MCP server name `codebase-memory`; opencode prefixes its
-tool names `codebase-memory_<tool>`.
+grep survey. MCP server name `codebase-memory`; OpenCode uses
+`codebase-memory_<tool>`, and OMP uses `mcp__codebase_memory_<tool>`.
 
 If the project is not indexed, `index_repository` first. Then:
 

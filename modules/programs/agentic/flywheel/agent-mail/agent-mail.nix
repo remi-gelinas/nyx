@@ -126,71 +126,73 @@
           type = "remote";
           url = mcpUrl;
         };
+        programs.omp.mcpServers.mcp-agent-mail = {
+          type = "http";
+          url = mcpUrl;
+        };
       }
-      (lib.mkIf pkgs.stdenv.isDarwin (
-        {
-          # Session-wide env publisher. Runs once at login (RunAtLoad, no
-          # KeepAlive — it exits immediately after the setenv calls) so a
-          # terminal/tmux/ntm started afterward inherits the vars. This is the
-          # only path that reaches ntm's non-interactive worker panes and the
-          # guard's hook subprocess; the fish exports only cover interactive
-          # shells. Start a fresh login shell (or `launchctl kickstart` it)
-          # after switching for it to take effect.
-          launchd.agents.flywheel-session-env = {
-            enable = true;
-            config = {
-              ProgramArguments = [ "${sessionEnvSetter}" ];
-              RunAtLoad = true;
-              StandardOutPath = "${config.home.homeDirectory}/Library/Logs/flywheel-session-env.log";
-              StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/flywheel-session-env.log";
-            };
+      (lib.mkIf pkgs.stdenv.isDarwin ({
+        # Session-wide env publisher. Runs once at login (RunAtLoad, no
+        # KeepAlive — it exits immediately after the setenv calls) so a
+        # terminal/tmux/ntm started afterward inherits the vars. This is the
+        # only path that reaches ntm's non-interactive worker panes and the
+        # guard's hook subprocess; the fish exports only cover interactive
+        # shells. Start a fresh login shell (or `launchctl kickstart` it)
+        # after switching for it to take effect.
+        launchd.agents.flywheel-session-env = {
+          enable = true;
+          config = {
+            ProgramArguments = [ "${sessionEnvSetter}" ];
+            RunAtLoad = true;
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/flywheel-session-env.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/flywheel-session-env.log";
           };
+        };
 
-          # launchd refuses to spawn a job whose WorkingDirectory is missing,
-          # and the server can only create the storage root once it is
-          # running — so seed the directory (idempotent) or the service
-          # silently never starts on a fresh machine or after the root is
-          # moved aside.
-          home.activation.agentMailStorageRoot = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-            run mkdir -p "${storageRoot}"
-          '';
+        # launchd refuses to spawn a job whose WorkingDirectory is missing,
+        # and the server can only create the storage root once it is
+        # running — so seed the directory (idempotent) or the service
+        # silently never starts on a fresh machine or after the root is
+        # moved aside.
+        home.activation.agentMailStorageRoot = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          run mkdir -p "${storageRoot}"
+        '';
 
-          # Working dir stays the storage root (belt-and-suspenders for any
-          # path agent-mail still resolves cwd-relative), but DATABASE_URL and
-          # STORAGE_ROOT are set explicitly so the service reads the same DB the
-          # CLI writes to. git is on PATH because the mailbox is a git-managed
-          # repo. --no-tui: launchd has no tty and the server otherwise starts
-          # its interactive console. HTTP_ALLOW_LOCALHOST_UNAUTHENTICATED
-          # restores the Python server's localhost exemption (Rust defaults it
-          # to false), matching the tokenless client configs above. Schema
-          # creation and legacy-Python DB detection happen at boot; no separate
-          # migrate step.
-          launchd.agents.mcp-agent-mail = {
-            enable = true;
-            config = {
-              ProgramArguments = [
-                "${mcp-agent-mail}/bin/am"
-                "serve-http"
-                "--host"
-                "127.0.0.1"
-                "--port"
-                "8765"
-                "--no-tui"
-              ];
-              WorkingDirectory = storageRoot;
-              EnvironmentVariables = {
-                PATH = "${pkgs.git}/bin:/usr/bin:/bin";
-                STORAGE_ROOT = storageRoot;
-                DATABASE_URL = databaseUrl;
-                HTTP_ALLOW_LOCALHOST_UNAUTHENTICATED = "1";
-              };
-              KeepAlive = true;
-              RunAtLoad = true;
-              StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
-              StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+        # Working dir stays the storage root (belt-and-suspenders for any
+        # path agent-mail still resolves cwd-relative), but DATABASE_URL and
+        # STORAGE_ROOT are set explicitly so the service reads the same DB the
+        # CLI writes to. git is on PATH because the mailbox is a git-managed
+        # repo. --no-tui: launchd has no tty and the server otherwise starts
+        # its interactive console. HTTP_ALLOW_LOCALHOST_UNAUTHENTICATED
+        # restores the Python server's localhost exemption (Rust defaults it
+        # to false), matching the tokenless client configs above. Schema
+        # creation and legacy-Python DB detection happen at boot; no separate
+        # migrate step.
+        launchd.agents.mcp-agent-mail = {
+          enable = true;
+          config = {
+            ProgramArguments = [
+              "${mcp-agent-mail}/bin/am"
+              "serve-http"
+              "--host"
+              "127.0.0.1"
+              "--port"
+              "8765"
+              "--no-tui"
+            ];
+            WorkingDirectory = storageRoot;
+            EnvironmentVariables = {
+              PATH = "${pkgs.git}/bin:/usr/bin:/bin";
+              STORAGE_ROOT = storageRoot;
+              DATABASE_URL = databaseUrl;
+              HTTP_ALLOW_LOCALHOST_UNAUTHENTICATED = "1";
             };
+            KeepAlive = true;
+            RunAtLoad = true;
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mcp-agent-mail.log";
           };
-        }
-      ))
+        };
+      }))
     ];
 }
