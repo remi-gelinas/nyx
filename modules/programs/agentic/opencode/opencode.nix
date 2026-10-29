@@ -1,12 +1,8 @@
-{ self, ... }:
+{ ... }:
 {
   flake.modules.homeManager.opencode =
     { config, pkgs, lib, ... }:
     {
-      imports = with self.modules.homeManager; [
-        opencode-zed
-      ];
-
       programs.opencode = {
         enable = true;
         package = pkgs.master.opencode;

@@ -1,4 +1,4 @@
-{ inputs, self, ... }:
+{ inputs, ... }:
 {
   flake.modules.homeManager.omp =
     { config, lib, ... }:
@@ -8,7 +8,6 @@
     {
       imports = [
         inputs.omp.homeManagerModules.default
-        self.modules.homeManager.omp-zed
       ];
 
       options.programs.omp = {

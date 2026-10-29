@@ -5,7 +5,6 @@
     {
       imports = with self.modules.homeManager; [
         determinate
-        zed
         ghostty
         tmux
         onepassword

@@ -33,7 +33,6 @@
       imports = with self.modules; [
         generic.fonts
         homeManager.fonts-ghostty
-        homeManager.fonts-zed
       ];
 
       home.packages =
