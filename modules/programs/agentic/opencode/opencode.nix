@@ -9,7 +9,7 @@
 
         settings = {
           # Bare-terminal default; ntm panes pass their model per spawn spec.
-          model = "openrouter/z-ai/glm-5.3-flash";
+          model = "openrouter/anthropic/claude-opus-5.5";
           # nix owns the binary.
           autoupdate = false;
 

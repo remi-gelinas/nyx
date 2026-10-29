@@ -32,7 +32,7 @@
         programs.omp = {
           enable = true;
           settings = {
-            modelRoles.default = "openrouter/z-ai/glm-5.3-flash";
+            modelRoles.default = "openrouter/anthropic/claude-opus-5.5";
             startup.checkUpdate = false;
             # Nix owns onboarding choices. `omp setup` is interactive and
             # must not run during activation or intercept NTM's first prompt.
