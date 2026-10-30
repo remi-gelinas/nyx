@@ -322,7 +322,8 @@
         set -l i 1
         while test $i -le (count $argv)
           if test "$argv[$i]" = --fw-model
-            set -gx OPENCODE_CONFIG_CONTENT "{\"model\":\"$argv[(math $i + 1)]\"}"
+            set -l model $argv[(math $i + 1)]
+            set -gx OPENCODE_CONFIG_CONTENT "{\"model\":\"$model\"}"
             set i (math $i + 2)
           else
             set -a args $argv[$i]
