@@ -20,6 +20,11 @@
         pname = "ntm";
         inherit (sources.ntm) version src vendorHash;
 
+        # ntm's opencode idle check reads only the last 5 pane lines, which
+        # fits the v1 TUI. In v2 the idle chrome sits higher, so panes never
+        # read as ready and spawn-time --prompt delivery times out.
+        patches = [ ./_opencode-v2-idle.patch ];
+
         subPackages = [ "cmd/ntm" ];
         doCheck = false;
 
