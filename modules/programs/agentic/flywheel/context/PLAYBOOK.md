@@ -89,15 +89,15 @@ model per pane. All traffic is OpenRouter (key file at
 (`openrouter/<vendor>/<model>`). Give cheaper models the worker beads and a
 stronger one the subtle beads — tool-calling fidelity varies by model.
 
-(The v2 TUI has no launch-time model flag — opencode #58216 — so ntm passes
-the model to the flywheel plugin, which applies it with session.switchModel
-on the pane's first prompt. Change the default in `opencode.json` to move
-the whole fleet at once.)
+(The v2 TUI has no launch-time model flag, so the opencode launch wrapper
+overrides the pane's default model through OPENCODE_CONFIG_CONTENT. Change
+the default in `opencode.json` to move the whole fleet at once.)
 
 Identity is automatic: AGENT_NAME/BR_ACTOR export at opencode launch from
 the pane's ntm-assigned name, and the lease guard reads it at commit time.
-Confirm a pane's identity with `ntm mapping` (the plugin also injects a
-session-start identity line); a pane with no AGENT_NAME has no identity —
+Confirm a pane's identity with `ntm mapping` or the name in its prompt
+footer (the plugin also injects a session-start identity line); a pane with
+no AGENT_NAME has no identity —
 investigate before it commits.
 
 The harness holds agents on the work loop while the frontier has ready

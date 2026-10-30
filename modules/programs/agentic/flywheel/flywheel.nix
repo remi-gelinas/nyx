@@ -176,8 +176,9 @@
           #
           # The plugin carries the stop-frontier loop, pane identity
           # injection, post-compact reminder, dcg bridge, and liveness
-          # sentinel. The dir must contain the entry module — opencode skips
-          # single-file plugin paths.
+          # sentinel; its tui.tsx part shows the pane's agent name in the
+          # prompt footer. The dir must contain the entry module — opencode
+          # skips single-file plugin paths.
           plugins = [ "${./_opencode-plugin}" ];
         };
       };
@@ -310,17 +311,18 @@
       # every pane — instead of its own.
       #
       # --fw-model <id> is a sentinel the oc template adds for --oc=N:model:
-      # opencode's v2 TUI has no --model flag, so the model rides an env var
-      # the plugin reads (FLYWHEEL_OC_MODEL → session.switchModel). Strip it
-      # here — opencode would reject the unknown flag — and export it so the
-      # standalone server and its plugin inherit it, same path as AGENT_NAME.
+      # opencode's v2 TUI has no --model flag. Strip it here — opencode would
+      # reject the unknown flag — and set the pane's default model through
+      # OPENCODE_CONFIG_CONTENT, which merges over the global config. The TUI
+      # and the standalone server both read it, so the footer shows the
+      # pinned model from launch and the first turn runs on it.
       programs.fish.functions.opencode = ''
         flywheel-agent-env
         set -l args
         set -l i 1
         while test $i -le (count $argv)
           if test "$argv[$i]" = --fw-model
-            set -gx FLYWHEEL_OC_MODEL $argv[(math $i + 1)]
+            set -gx OPENCODE_CONFIG_CONTENT "{\"model\":\"$argv[(math $i + 1)]\"}"
             set i (math $i + 2)
           else
             set -a args $argv[$i]

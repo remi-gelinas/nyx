@@ -118,9 +118,8 @@
         # header, so the oc key is a per-key insert (covers a pre-existing
         # [agents] too). ntm's compiled-in oc template passes --model, a flag
         # the v2 root CLI no longer has — so the model rides --fw-model, a
-        # sentinel the fish wrapper strips into FLYWHEEL_OC_MODEL for the
-        # plugin (the v2 TUI can't take a model at launch; the plugin applies
-        # it via session.switchModel). Bare --oc=N omits it and falls through
+        # sentinel the fish wrapper strips into an OPENCODE_CONFIG_CONTENT
+        # model override. Bare --oc=N omits it and falls through
         # to opencode.json's default. Swarm panes need --standalone (v2's
         # shared daemon would run every pane's tools under one env — per-pane
         # AGENT_NAME dies with it) and --auto (auto-approve; explicit deny
