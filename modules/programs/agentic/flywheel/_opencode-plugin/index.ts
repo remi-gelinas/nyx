@@ -43,6 +43,9 @@ const isSwarm = (() => {
     return false
   }
 })()
+// The supervisor steers workers; re-prompting it to claim beads would turn
+// it back into one.
+const isSupervisor = process.env.FLYWHEEL_ROLE === "supervisor"
 
 const attentionCount = async (view: string, project: string): Promise<number> => {
   const res = await fetch(MAIL_URL, {
@@ -168,7 +171,7 @@ export default Plugin.define({
               await ctx.session.synthetic({ sessionID, text: identityLine(agentName!) })
             } else if (type === "session.compacted") {
               await ctx.session.synthetic({ sessionID, text: COMPACT_REMINDER })
-            } else if (type === "session.idle") {
+            } else if (type === "session.idle" && !isSupervisor) {
               await onIdle(sessionID)
             }
           } catch {}

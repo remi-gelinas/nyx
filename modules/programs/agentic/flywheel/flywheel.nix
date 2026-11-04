@@ -180,6 +180,46 @@
           # prompt footer. The dir must contain the entry module — opencode
           # skips single-file plugin paths.
           plugins = [ "${./_opencode-plugin}" ];
+
+          # The swarm supervisor pane (flywheel-supervise) runs as this agent.
+          # Panes run --auto, which approves everything not explicitly denied,
+          # so these denies are the supervisor's only hard boundary: it steers
+          # workers through ntm and mail but cannot take or change their work.
+          # Subagents carry their own permissions, so only the read-only
+          # explore agent is allowed — `general` could edit on its behalf.
+          agents.supervisor =
+            let
+              deny = action: resource: {
+                inherit action resource;
+                effect = "deny";
+              };
+            in
+            {
+              description = "Supervises a flywheel swarm without doing its work";
+              mode = "primary";
+              system = builtins.readFile ./context/supervisor.md;
+              permissions =
+                map (deny "shell") [
+                  "git commit *"
+                  "git push *"
+                  "br update *"
+                  "br close *"
+                ]
+                ++ map (action: deny action "*") [
+                  "*file_reservation_paths"
+                  "*macro_file_reservation_cycle"
+                  "*force_release_file_reservation"
+                ]
+                ++ [
+                  (deny "edit" "*")
+                  (deny "subagent" "*")
+                  {
+                    action = "subagent";
+                    resource = "explore";
+                    effect = "allow";
+                  }
+                ];
+            };
         };
       };
 
@@ -316,21 +356,53 @@
       # OPENCODE_CONFIG_CONTENT, which merges over the global config. The TUI
       # and the standalone server both read it, so the footer shows the
       # pinned model from launch and the first turn runs on it.
+      #
+      # --fw-agent <name> is the same kind of sentinel for ntm personas: the
+      # oc template passes the persona name, which selects the opencode agent
+      # of that name as the pane's default, and FLYWHEEL_ROLE tells the
+      # flywheel plugin which role the pane plays.
       programs.fish.functions.opencode = ''
         flywheel-agent-env
         set -l args
+        set -l config
         set -l i 1
         while test $i -le (count $argv)
-          if test "$argv[$i]" = --fw-model
-            set -l model $argv[(math $i + 1)]
-            set -gx OPENCODE_CONFIG_CONTENT "{\"model\":\"$model\"}"
-            set i (math $i + 2)
-          else
-            set -a args $argv[$i]
-            set i (math $i + 1)
+          switch $argv[$i]
+            case --fw-model
+              set -l model $argv[(math $i + 1)]
+              set -a config "\"model\":\"$model\""
+              set i (math $i + 2)
+            case --fw-agent
+              set -l agent $argv[(math $i + 1)]
+              set -a config "\"default_agent\":\"$agent\""
+              set -gx FLYWHEEL_ROLE $agent
+              set i (math $i + 2)
+            case '*'
+              set -a args $argv[$i]
+              set i (math $i + 1)
           end
         end
+        if set -q config[1]
+          set -gx OPENCODE_CONFIG_CONTENT "{"(string join , $config)"}"
+        end
         command opencode $args
+      '';
+
+      # Adds the supervisor pane to a running swarm. The supervisor persona
+      # (ntm.nix) pins its model and selects the supervisor agent above;
+      # `ntm add --prompt` waits for the pane to be ready before sending the
+      # kickoff, which `ntm controller`'s fixed two-second sleep does not.
+      programs.fish.functions.flywheel-supervise = ''
+        if test (count $argv) -ne 1
+          echo "Usage: flywheel-supervise <ntm-session>   (run from the swarm's repo root)"
+          return 1
+        end
+        if not test -d .beads
+          echo "Not a flywheel repo (no .beads/ here)."
+          return 1
+        end
+        ntm add $argv[1] --persona=supervisor --no-cass-context \
+          --prompt "Supervise ntm session $argv[1] in $PWD. Start with the loop in your instructions."
       '';
 
       # Human fallback: the guard hook hard-refuses any commit without

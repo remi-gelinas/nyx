@@ -56,6 +56,22 @@
         '';
       };
 
+      # The swarm supervisor (flywheel-supervise). No system_prompt: the prompt
+      # lives in the opencode agent the persona name selects, and ntm refuses
+      # a persona prompt file the oc template does not consume. Opus because
+      # the supervisor's real job is judging drift, and one pane of the
+      # strongest model costs little next to a swarm working the wrong thing.
+      xdg.configFile."ntm/personas.toml".source = (pkgs.formats.toml { }).generate "ntm-personas.toml" {
+        personas = [
+          {
+            name = "supervisor";
+            description = "Keeps a flywheel swarm on track without doing its work";
+            agent_type = "opencode";
+            model = "openrouter/anthropic/claude-opus-5.5";
+          }
+        ];
+      };
+
       # ntm's fish integration (command palette keybinding, completions,
       # session helpers) — upstream's documented `ntm shell fish | source`,
       # run once per interactive shell rather than hand-edited into config.fish.
@@ -98,6 +114,21 @@
           [integrations.rch]
           enabled = false
         ''}
+        # [coordinator]: these match ntm's defaults today and are pinned so an
+        # upstream default change cannot turn them on. auto_assign claims beads
+        # and mails them to idle panes, while the flywheel plugin makes those
+        # same panes claim from the frontier: one agent ends up holding two
+        # beads, and its assignment mail tells agents to commit `.beads/`.
+        # mail_nudge would type into panes the plugin already nudges.
+        coordinator=${pkgs.writeText "ntm-coordinator.toml" ''
+
+          [coordinator]
+          auto_assign = false
+          mail_nudge = false
+          conflict_notify = true
+          conflict_negotiate = false
+          send_digests = false
+        ''}
         contextLimits=${pkgs.writeText "ntm-context-limits.toml" ''
           "openrouter/z-ai/glm-5.3" = 1048576
           "openrouter/z-ai/glm-5.3-flash" = 1048576
@@ -128,10 +159,13 @@
         # Reconcile, not just insert: the oc line is entirely ours (no user
         # tuning), so replace an existing one to pick up template changes
         # across switches; insert under the header on a fresh config.
+        # A persona name rides --fw-agent the same way, so `--persona=<name>`
+        # launches the opencode agent of that name.
+        oc=${lib.escapeShellArg "oc = 'opencode --standalone --auto{{if .Model}} --fw-model {{shellQuote .Model}}{{end}}{{if .PersonaName}} --fw-agent {{shellQuote .PersonaName}}{{end}}'"}
         if ${pkgs.gnugrep}/bin/grep -qE '^oc = ' "$cfg"; then
-          run ${pkgs.gnused}/bin/sed -i "s|^oc = .*|oc = 'opencode --standalone --auto{{if .Model}} --fw-model {{shellQuote .Model}}{{end}}'|" "$cfg"
+          run ${pkgs.gnused}/bin/sed -i "s|^oc = .*|$oc|" "$cfg"
         else
-          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a oc = 'opencode --standalone --auto{{if .Model}} --fw-model {{shellQuote .Model}}{{end}}'" "$cfg"
+          run ${pkgs.gnused}/bin/sed -i "/^\[agents\]/a $oc" "$cfg"
         fi
         # ntm's dcg/rch integrations inject a hooks env blob into agent launch
         # lines. rch (remote compilation offload) is not packaged here, so its
@@ -141,6 +175,9 @@
         # with these off launch clean; with them on, panes died at the prompt.
         if ! ${pkgs.gnugrep}/bin/grep -q '^\[integrations' "$cfg"; then
           run sh -c 'cat "$1" >> "$2"' _ "$integrations" "$cfg"
+        fi
+        if ! ${pkgs.gnugrep}/bin/grep -q '^\[coordinator\]' "$cfg"; then
+          run sh -c 'cat "$1" >> "$2"' _ "$coordinator" "$cfg"
         fi
         # ntm's registry has no entries for the vendor-prefixed slugs opencode
         # runs through OpenRouter, so their windows fall to the 128k default

@@ -130,6 +130,18 @@ Check in every 10–30 minutes; the guide's whole human role is this loop:
 - Ad-hoc changes too small for a bead are allowed; if one turns out to
   matter, create the bead retroactively.
 
+**Supervisor pane (optional).** `flywheel-supervise <session>` from the repo
+root adds an Opus pane that runs this loop between your check-ins. It waits
+on `ntm --robot-attention`, nudges single panes, files discovered work as
+beads, and flags drift with `HUMAN:` lines. It cannot claim, edit, reserve,
+or commit, and the harness never re-prompts it to work beads. Read its pane
+when you check in.
+
+**Bead routing (shadow).** `flywheel-route` asks a decision model which
+judgment tier each ready bead needs and logs it to
+`.beads/flywheel-route.jsonl`. It steers nothing yet. Fill in `label` on
+logged lines to score it.
+
 ## Review layers (no merge gate exists — these replace it)
 
 1. **Immediate self-review** after every bead, the prompt roughly:
