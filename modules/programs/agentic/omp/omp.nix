@@ -26,6 +26,11 @@
           default = { };
           description = "Native OMP MCP server definitions.";
         };
+        models = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "Contents of OMP's models.yml provider and model registry.";
+        };
       };
 
       config = {
@@ -99,16 +104,15 @@
             task.isolation.enabled = false;
           };
           skills.dendritic-nix = ../opencode/_skills/dendritic-nix;
+          # Only the command is stored; the key is resolved when requested.
+          models.providers.openrouter.apiKey = "!cat ${lib.escapeShellArg "${config.home.homeDirectory}/.config/openrouter/key"}";
         };
 
         home.file = lib.mkMerge [
           {
             ".omp/agent/NYX.md".text = cfg.context;
             ".omp/agent/mcp.json".text = builtins.toJSON { mcpServers = cfg.mcpServers; };
-            # Only the command is stored; the key is resolved when requested.
-            ".omp/agent/models.yml".text = builtins.toJSON {
-              providers.openrouter.apiKey = "!cat ${lib.escapeShellArg "${config.home.homeDirectory}/.config/openrouter/key"}";
-            };
+            ".omp/agent/models.yml".text = builtins.toJSON cfg.models;
           }
           (lib.mapAttrs' (
             name: source: lib.nameValuePair ".omp/agent/skills/${name}" { inherit source; }

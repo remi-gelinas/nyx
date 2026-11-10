@@ -6,5 +6,6 @@
     opencode
     omp
     agent-caffeinate
+    headroom
   ];
 }
