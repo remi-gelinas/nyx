@@ -7,5 +7,6 @@
     omp
     agent-caffeinate
     headroom
+    gitlab
   ];
 }
