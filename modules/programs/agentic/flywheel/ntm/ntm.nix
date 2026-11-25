@@ -52,14 +52,26 @@
       # cwd and Agent Mail project key to the same verified sibling checkout.
       xdg.configFile."ntm/commands/spine".source = pkgs.writeShellScript "ntm-spine" ''
         # Description: Check or launch a swarm in a platform registry checkout
-        # Usage: ntm spine check|spawn|routed NODE
+        # Usage: ntm spine check|spawn|routed NODE [--oc=COUNT:MODEL ...]
         set -euo pipefail
         fail() { echo "ntm spine: $*" >&2; exit 1; }
         [[ $# -ge 2 ]] || fail 'usage: ntm spine {check|spawn|routed} NODE [spawn flags]'
         action=$1 node=$2
         shift 2
         case "$action" in
-          check|routed) [[ $# == 0 ]] || fail "$action takes only a registry node ID" ;;
+          check) [[ $# == 0 ]] || fail "$action takes only a registry node ID" ;;
+          routed)
+            flash=openrouter/deepseek/deepseek-v4.1-flash
+            opus=openrouter/anthropic/claude-opus-5.5
+            if [[ $# == 0 ]]; then set -- "--oc=1:$flash" "--oc=1:$opus"; fi
+            for spec in "$@"; do
+              [[ $spec =~ ^--oc=[1-9][0-9]*:(.+)$ ]] || fail 'expected --oc=COUNT:MODEL for each routed worker pool'
+              case "''${BASH_REMATCH[1]}" in
+                "$flash"|"$opus") ;;
+                *) fail "no bead route for $spec; choose $flash or $opus" ;;
+              esac
+            done
+            ;;
           spawn) ;;
           *) fail "unknown action: $action" ;;
         esac
@@ -88,7 +100,7 @@
         [[ -d .beads ]] || fail "initialize the board in $repo first"
         flywheel-route --live
         [[ -f .beads/flywheel-route-live.jsonl ]] || fail 'activate the live bead router before spawning'
-        ntm spawn "$name" --oc=1:openrouter/deepseek/deepseek-v4.1-flash --oc=1:openrouter/anthropic/claude-opus-5.5 \
+        ntm spawn "$name" "$@" \
           --prompt='Use flywheel-route --claim for each bead. Announce and reserve after a successful claim.'
         # shellcheck disable=SC2016 # fish expands its own positional arguments.
         exec ${pkgs.fish}/bin/fish -c 'flywheel-supervise $argv[1]' "$name"
