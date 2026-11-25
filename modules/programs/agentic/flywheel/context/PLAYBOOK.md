@@ -82,8 +82,8 @@ converts. The transition is a scheduled work step, not an afterthought.
 ntm spawn <project> --oc=2      # start small; scale after a clean wave
 ntm spawn <project> --oc=2:openrouter/z-ai/glm-5.3-flash --oc=1:openrouter/anthropic/claude-opus-5.5
 ```
-opencode is the only harness (`--oc`). A bare `--oc=N` runs opencode's
-configured default (`openrouter/z-ai/glm-5.3-flash`); `--oc=N:model` pins a
+These commands use OpenCode (`--oc`). A bare `--oc=N` runs OpenCode's
+configured default; `--oc=N:model` pins a
 model per pane. All traffic is OpenRouter (key file at
 `~/.config/openrouter/key`), so model ids are OpenRouter slugs
 (`openrouter/<vendor>/<model>`). Give cheaper models the worker beads and a
@@ -137,10 +137,29 @@ beads, and flags drift with `HUMAN:` lines. It cannot claim, edit, reserve,
 or commit, and the harness never re-prompts it to work beads. Read its pane
 when you check in.
 
-**Bead routing (shadow).** `flywheel-route` asks a decision model which
-judgment tier each ready bead needs and logs it to
-`.beads/flywheel-route.jsonl`. It steers nothing yet. Fill in `label` on
-logged lines to score it.
+**Test live routing.** From fish in an initialized repo, publish the first
+routes before launching workers. Replace `myproject` with the NTM session name.
+
+```fish
+set flash openrouter/deepseek/deepseek-v4.1-flash
+set opus openrouter/anthropic/claude-opus-5.5
+flywheel-route --live
+flywheel-route --ready $flash
+flywheel-route --ready $opus
+ntm spawn myproject --oc=2:$flash --oc=1:$opus --prompt='Claim routed work with flywheel-route --claim. Announce and reserve after a successful claim.'
+flywheel-supervise myproject
+```
+
+The [tier map](../_tier-models.nix) selects the model for each queue.
+Decisions below 0.5 confidence use the subtle queue. The supervisor refreshes routes on check-in;
+run `flywheel-route --live` yourself for an immediate refresh. A failed
+decision leaves that bead out of both queues until a refresh succeeds.
+`br list --status in_progress --json` shows actual claims. Workers must use
+`flywheel-route --claim`; this is a worker protocol, not a restriction on `br`.
+Use explicitly model-pinned OpenCode workers for a routed swarm.
+
+Bare `flywheel-route` still logs shadow decisions to `.beads/flywheel-route.jsonl`.
+After stopping the routed swarm, `flywheel-route --off` restores the raw frontier.
 
 ## Review layers (no merge gate exists — these replace it)
 
