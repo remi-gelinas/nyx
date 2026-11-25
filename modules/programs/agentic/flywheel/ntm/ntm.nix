@@ -112,10 +112,9 @@
         [[ -d .beads ]] || fail "initialize the board in $repo first"
         flywheel-route --live
         [[ -f .beads/flywheel-route-live.jsonl ]] || fail 'activate the live bead router before spawning'
-        ntm spawn "$name" "''${label[@]/#/--label=}" "''${workers[@]}" \
-          --prompt='Use flywheel-route --claim for each bead. Announce and reserve after a successful claim.'
-        # shellcheck disable=SC2016 # fish expands its own positional arguments.
-        exec ${pkgs.fish}/bin/fish -c 'flywheel-supervise $argv' "$name" "''${label[@]}"
+        session="$name''${label[0]:+--''${label[0]}}"
+        exec ntm spawn "$name" "''${label[@]/#/--label=}" "''${workers[@]}" --persona=supervisor \
+          --prompt="Check FLYWHEEL_ROLE in your environment. If supervisor, supervise ntm session $session in $repo: refresh routes and start your supervisor loop; never claim beads. Otherwise use flywheel-route --claim for each bead. Announce and reserve after a successful claim."
       '';
 
       # Reuse upstream's OMP readiness patterns and model/thinking arguments.
