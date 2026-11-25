@@ -68,6 +68,10 @@
                 INDEX($routes[]; .bead) as $index | map(select((.labels // [] | index("needs-human")) == null) | select(. as $b | $index[.id] as $r |
                   $r != null and $tiers[$r.route] == $pane and ($tier == "" or $r.route == $tier) and $r.state == ($b | state)))')
               if [[ $mode == --ready ]]; then echo "$ready"; exit; fi
+              if [[ -n ''${TMUX_PANE:-} && ''${AGENT_NAME:-} == "$(id -un)" ]]; then
+                echo "No swarm identity exported for $TMUX_PANE. Check ntm mapping --session $session before claiming." >&2
+                exit 1
+              fi
               id=$(jq -er 'first.id // empty' <<<"$ready") || { echo "No ready bead for $pane" >&2; exit 1; }
               exec br update --actor "''${AGENT_NAME:?missing pane identity}" "$id" --claim --json
               ;;
