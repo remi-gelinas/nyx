@@ -26,6 +26,7 @@
         runtimeInputs = [
           pkgs.curl
           pkgs.jq
+          pkgs.tmux
         ];
         text = ''
           model=''${FLYWHEEL_ROUTE_MODEL:-cloudflare/clef}
@@ -43,11 +44,28 @@
           state='def state: {title, type: .issue_type, description, acceptance_criteria, design}
             | with_entries(select(.value != null and .value != ""));'
           case "$mode" in
+            --scope)
+              [[ $# == 3 && $2 =~ ^[a-zA-Z0-9_-]+$ && $3 =~ ^[a-zA-Z0-9_-]*$ ]] || { echo 'Usage: flywheel-route --scope SESSION BEAD_LABEL' >&2; exit 2; }
+              scope="$live.scope.$2"
+              if [[ -z $3 ]]; then rm -f "$scope"; exit; fi
+              next=$(mktemp "$scope.XXXXXX")
+              printf '%s\n' "$3" > "$next"
+              mv "$next" "$scope"
+              exit ;;
             --ready|--claim)
               pane=''${FLYWHEEL_PANE_MODEL:-}
               if [[ $mode == --ready && $# == 2 ]]; then pane=$2; fi
-              ready=$(br ready --unassigned --json | jq --arg pane "$pane" --arg tier "''${FLYWHEEL_TIER:-}" --argjson tiers '${tierModels}' --slurpfile routes "$live" "$state"'
-                INDEX($routes[]; .bead) as $index | map(select(. as $b | $index[.id] as $r |
+              filter=()
+              if [[ -n ''${TMUX_PANE:-} ]]; then
+                session=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}')
+                [[ -n $session ]] || { echo 'Cannot resolve pane session for routing' >&2; exit 1; }
+                if [[ -f $live.scope.$session ]]; then
+                  read -r label < "$live.scope.$session"
+                  filter=(--label "$label")
+                fi
+              fi
+              ready=$(br ready --unassigned "''${filter[@]}" --json | jq --arg pane "$pane" --arg tier "''${FLYWHEEL_TIER:-}" --argjson tiers '${tierModels}' --slurpfile routes "$live" "$state"'
+                INDEX($routes[]; .bead) as $index | map(select((.labels // [] | index("needs-human")) == null) | select(. as $b | $index[.id] as $r |
                   $r != null and $tiers[$r.route] == $pane and ($tier == "" or $r.route == $tier) and $r.state == ($b | state)))')
               if [[ $mode == --ready ]]; then echo "$ready"; exit; fi
               id=$(jq -er 'first.id // empty' <<<"$ready") || { echo "No ready bead for $pane" >&2; exit 1; }

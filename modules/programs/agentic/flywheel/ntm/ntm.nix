@@ -54,7 +54,7 @@
       # cwd and Agent Mail project key to the same verified sibling checkout.
       xdg.configFile."ntm/commands/spine".source = pkgs.writeShellScript "ntm-spine" ''
         # Description: Check or launch a swarm in a platform registry checkout
-        # Usage: ntm spine routed NODE [--label=NAME] [--tier=TIER:COUNT | --oc=COUNT:MODEL ...]
+        # Usage: ntm spine routed NODE [--label=NAME] [--bead-label=LABEL] [--tier=TIER:COUNT | --oc=COUNT:MODEL ...]
         set -euo pipefail
         fail() { echo "ntm spine: $*" >&2; exit 1; }
         [[ $# -ge 2 ]] || fail 'usage: ntm spine {check|spawn|routed} NODE [spawn flags]'
@@ -64,9 +64,14 @@
           check) [[ $# == 0 ]] || fail "$action takes only a registry node ID" ;;
           routed)
             label=()
+            bead_label=
             workers=()
             while [[ $# -gt 0 ]]; do
               spec=$1; shift
+              if [[ $spec == --bead-label=* ]]; then
+                [[ -z $bead_label && $spec =~ ^--bead-label=([A-Za-z0-9][A-Za-z0-9_-]*)$ ]] || fail 'expected one nonempty bead label'
+                bead_label=''${BASH_REMATCH[1]}; continue
+              fi
               if [[ $spec == --label || $spec == --label=* ]]; then
                 if [[ $spec == --label ]]; then spec="--label=''${1:?missing label}"; shift; fi
                 [[ ''${#label[@]} == 0 && $spec =~ ^--label=([A-Za-z0-9][A-Za-z0-9_-]*)$ ]] || fail 'expected one nonempty session label'
@@ -110,9 +115,11 @@
         cd "$repo"
         if [[ $action == spawn ]]; then exec ntm spawn "$name" "$@"; fi
         [[ -d .beads ]] || fail "initialize the board in $repo first"
+        session="$name''${label[0]:+--''${label[0]}}"
+        if tmux has-session -t "=$session" 2>/dev/null; then fail "session $session already exists"; fi
+        flywheel-route --scope "$session" "$bead_label"
         flywheel-route --live
         [[ -f .beads/flywheel-route-live.jsonl ]] || fail 'activate the live bead router before spawning'
-        session="$name''${label[0]:+--''${label[0]}}"
         exec ntm spawn "$name" "''${label[@]/#/--label=}" "''${workers[@]}" --persona=supervisor \
           --prompt="Check FLYWHEEL_ROLE in your environment. If supervisor, supervise ntm session $session in $repo: refresh routes and start your supervisor loop; never claim beads. Otherwise use flywheel-route --claim for each bead. Announce and reserve after a successful claim."
       '';
