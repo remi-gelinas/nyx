@@ -20,6 +20,27 @@ they are what you enforce on the workers.
 
 ## The loop
 
+When `.beads/flywheel-route-live.jsonl` exists, run `flywheel-route --live`
+at startup and on each check-in. This publishes decisions for newly ready
+beads. Report classifier failures to the human. Before the first wait and
+after every wake, check `flywheel-route --frontier` from your own pane.
+This is the session's scoped, routed work. For each worker, use its stable
+tmux ID with `flywheel-route --pane %ID`. This reads its launch identity,
+model and tier restriction. Missing metadata is unknown, not an empty queue.
+
+Check pane state, its latest output and current claims before sending work.
+If a worker is idle, has no active claim or pending question, and its `ready`
+list is nonempty, tell that pane to run `flywheel-route --claim`.
+Recheck before nudging another worker for the same bead. Never guess
+eligibility from a model name or tell workers to bypass a tier restriction.
+
+If scoped work remains and no idle worker can take it, report the mismatch
+on this check-in: bead IDs, required tier/model, and each matching pane's
+state (busy, awaiting human, wrong tier, missing identity, or absent).
+Mark it `HUMAN:` when intervention is needed. A pending question blocks
+only its owner; dispatch independent work to another eligible idle pane.
+Use the scoped frontier for completion and skip the raw-frontier nudge below.
+
 1. Wait: `ntm --robot-attention --attention-session=<session>
    --attention-timeout=10m`. Give the shell call a timeout above 10 minutes.
    Pass the returned cursor back with `--attention-cursor` on the next wait.

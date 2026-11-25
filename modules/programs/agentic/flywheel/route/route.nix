@@ -52,22 +52,44 @@
               printf '%s\n' "$3" > "$next"
               mv "$next" "$scope"
               exit ;;
-            --ready|--claim)
+            --ready|--claim|--pane|--frontier)
               pane=''${FLYWHEEL_PANE_MODEL:-}
+              tier=''${FLYWHEEL_TIER:-}
               if [[ $mode == --ready && $# == 2 ]]; then pane=$2; fi
               filter=()
-              if [[ -n ''${TMUX_PANE:-} ]]; then
-                session=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}')
+              target=''${TMUX_PANE:-}
+              if [[ $mode == --pane ]]; then
+                [[ $# == 2 && $2 =~ ^%[0-9]+$ ]] || { echo 'Usage: flywheel-route --pane %PANE_ID' >&2; exit 2; }
+                target=$2
+                meta=$(tmux show-options -pqv -t "$target" @flywheel-route)
+                [[ -n $meta ]] || { echo "No routing metadata for $target; cannot verify its queue" >&2; exit 1; }
+                pane=$(jq -er '.model' <<<"$meta")
+                tier=$(jq -er '.tier' <<<"$meta")
+              elif [[ -n $target && $mode != --frontier ]]; then
+                # A live pane may be moved from a restricted tier into its
+                # model pool. Read the same restriction the supervisor sees.
+                meta=$(tmux show-options -pqv -t "$target" @flywheel-route)
+                if [[ -n $meta ]]; then tier=$(jq -er '.tier' <<<"$meta"); fi
+              fi
+              if [[ -n $target ]]; then
+                session=$(tmux display-message -p -t "$target" '#{session_name}')
                 [[ -n $session ]] || { echo 'Cannot resolve pane session for routing' >&2; exit 1; }
                 if [[ -f $live.scope.$session ]]; then
                   read -r label < "$live.scope.$session"
                   filter=(--label "$label")
                 fi
               fi
-              ready=$(br ready --unassigned "''${filter[@]}" --json | jq --arg pane "$pane" --arg tier "''${FLYWHEEL_TIER:-}" --argjson tiers '${tierModels}' --slurpfile routes "$live" "$state"'
+              ready=$(br ready --unassigned "''${filter[@]}" --json | jq --arg mode "$mode" --arg pane "$pane" --arg tier "$tier" --argjson tiers '${tierModels}' --slurpfile routes "$live" "$state"'
                 INDEX($routes[]; .bead) as $index | map(select((.labels // [] | index("needs-human")) == null) | select(. as $b | $index[.id] as $r |
-                  $r != null and $tiers[$r.route] == $pane and ($tier == "" or $r.route == $tier) and $r.state == ($b | state)))')
+                  $r != null and ($mode == "--frontier" or ($tiers[$r.route] == $pane and ($tier == "" or $r.route == $tier))) and $r.state == ($b | state)) |
+                  if $mode == "--frontier" then {id, route:$index[.id].route, model:$tiers[$index[.id].route]} else . end)')
+              if [[ $mode == --frontier ]]; then echo "$ready"; exit; fi
+              if [[ $mode == --pane ]]; then
+                jq --argjson ready "$ready" --arg login "$(id -un)" '. + {ready:(if .role == "supervisor" or .actor == "" or .actor == $login then [] else $ready | map(.id) end)}' <<<"$meta"
+                exit
+              fi
               if [[ $mode == --ready ]]; then echo "$ready"; exit; fi
+              [[ ''${FLYWHEEL_ROLE:-} != supervisor ]] || { echo 'Supervisor cannot claim beads' >&2; exit 1; }
               if [[ -n ''${TMUX_PANE:-} && ''${AGENT_NAME:-} == "$(id -un)" ]]; then
                 echo "No swarm identity exported for $TMUX_PANE. Check ntm mapping --session $session before claiming." >&2
                 exit 1
@@ -82,7 +104,7 @@
               trap 'rm -f "$next"' EXIT
               ;;
             shadow|-) ;;
-            *) echo 'Usage: flywheel-route [ - | --live | --ready [MODEL] | --claim | --off ]' >&2; exit 2 ;;
+            *) echo 'Usage: flywheel-route [ - | --live | --frontier | --pane %ID | --ready [MODEL] | --claim | --scope SESSION LABEL | --off ]' >&2; exit 2 ;;
           esac
           key=$(cat "$HOME/.config/openrouter/key")
 

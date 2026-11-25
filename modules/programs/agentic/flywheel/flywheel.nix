@@ -390,6 +390,10 @@
         if set -q config[1]
           set -gx OPENCODE_CONFIG_CONTENT "{"(string join , $config)"}"
         end
+        if set -q TMUX_PANE; and set -q FLYWHEEL_PANE_MODEL
+          set -l route (${pkgs.jq}/bin/jq -cn --arg model "$FLYWHEEL_PANE_MODEL" --arg tier "$FLYWHEEL_TIER" --arg role "$FLYWHEEL_ROLE" --arg actor "$AGENT_NAME" '{model:$model,tier:$tier,role:$role,actor:$actor}')
+          tmux set-option -p -t "$TMUX_PANE" @flywheel-route "$route"; or return 1
+        end
         command opencode $args
       '';
 
