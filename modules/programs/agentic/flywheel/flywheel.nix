@@ -370,11 +370,16 @@
           switch $argv[$i]
             case --fw-model
               set -l model $argv[(math $i + 1)]
+              set -fx FLYWHEEL_PANE_MODEL $model
               set -a config "\"model\":\"$model\""
               set i (math $i + 2)
             case --fw-agent
               set -l agent $argv[(math $i + 1)]
-              set -a config "\"default_agent\":\"$agent\""
+              if string match -q 'tier-*' -- "$agent"
+                set -fx FLYWHEEL_TIER (string replace 'tier-' "" -- "$agent")
+              else
+                set -a config "\"default_agent\":\"$agent\""
+              end
               set -gx FLYWHEEL_ROLE $agent
               set i (math $i + 2)
             case '*'
@@ -393,16 +398,22 @@
       # `ntm add --prompt` waits for the pane to be ready before sending the
       # kickoff, which `ntm controller`'s fixed two-second sleep does not.
       programs.fish.functions.flywheel-supervise = ''
-        if test (count $argv) -ne 1
-          echo "Usage: flywheel-supervise <ntm-session>   (run from the swarm's repo root)"
+        if test (count $argv) -lt 1; or test (count $argv) -gt 2
+          echo "Usage: flywheel-supervise <project> [session-label]   (run from the swarm's repo root)"
           return 1
         end
         if not test -d .beads
           echo "Not a flywheel repo (no .beads/ here)."
           return 1
         end
-        ntm add $argv[1] --persona=supervisor --no-cass-context \
-          --prompt "Supervise ntm session $argv[1] in $PWD. Start with the loop in your instructions."
+        set -l session $argv[1]
+        set -l label
+        if set -q argv[2]
+          set label --label=$argv[2]
+          set session "$argv[1]--$argv[2]"
+        end
+        ntm add $argv[1] $label --persona=supervisor --no-cass-context \
+          --prompt "Supervise ntm session $session in $PWD. Start with the loop in your instructions."
       '';
 
       # Human fallback: the guard hook hard-refuses any commit without

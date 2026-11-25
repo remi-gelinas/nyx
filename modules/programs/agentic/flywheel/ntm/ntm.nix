@@ -9,7 +9,8 @@
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
       riderLicense = import ../_rider-license.nix;
-      workerModels = lib.unique (builtins.attrValues (import ../_tier-models.nix));
+      tiers = import ../_tier-models.nix;
+      workerModels = lib.unique (builtins.attrValues tiers);
 
       # ntm shells out to tmux and to the agent CLI (opencode) at runtime.
       # tmux is wrapped onto its PATH from nixpkgs; the agent CLI is
@@ -53,7 +54,7 @@
       # cwd and Agent Mail project key to the same verified sibling checkout.
       xdg.configFile."ntm/commands/spine".source = pkgs.writeShellScript "ntm-spine" ''
         # Description: Check or launch a swarm in a platform registry checkout
-        # Usage: ntm spine check|spawn|routed NODE [--oc=COUNT:MODEL ...]
+        # Usage: ntm spine routed NODE [--label=NAME] [--tier=TIER:COUNT | --oc=COUNT:MODEL ...]
         set -euo pipefail
         fail() { echo "ntm spine: $*" >&2; exit 1; }
         [[ $# -ge 2 ]] || fail 'usage: ntm spine {check|spawn|routed} NODE [spawn flags]'
@@ -62,14 +63,26 @@
         case "$action" in
           check) [[ $# == 0 ]] || fail "$action takes only a registry node ID" ;;
           routed)
-            if [[ $# == 0 ]]; then set -- ${lib.escapeShellArgs (map (model: "--oc=1:${model}") workerModels)}; fi
-            for spec in "$@"; do
+            label=()
+            workers=()
+            while [[ $# -gt 0 ]]; do
+              spec=$1; shift
+              if [[ $spec == --label || $spec == --label=* ]]; then
+                if [[ $spec == --label ]]; then spec="--label=''${1:?missing label}"; shift; fi
+                [[ ''${#label[@]} == 0 && $spec =~ ^--label=([A-Za-z0-9][A-Za-z0-9_-]*)$ ]] || fail 'expected one nonempty session label'
+                label=("''${BASH_REMATCH[1]}")
+                continue
+              fi
+              if [[ $spec =~ ^--tier=(${lib.concatStringsSep "|" (builtins.attrNames tiers)}):([1-9][0-9]*)$ ]]; then
+                workers+=("--persona=tier-''${BASH_REMATCH[1]}:''${BASH_REMATCH[2]}"); continue
+              fi
               [[ $spec =~ ^--oc=[1-9][0-9]*:(.+)$ ]] || fail 'expected --oc=COUNT:MODEL for each routed worker pool'
               case "''${BASH_REMATCH[1]}" in
-                ${lib.concatMapStringsSep "|" lib.escapeShellArg workerModels}) ;;
+                ${lib.concatMapStringsSep "|" lib.escapeShellArg workerModels}) workers+=("$spec") ;;
                 *) fail "no bead route for $spec; configured workers: "${lib.escapeShellArg (lib.concatStringsSep ", " workerModels)} ;;
               esac
             done
+            if [[ ''${#workers[@]} == 0 ]]; then workers=(${lib.escapeShellArgs (map (model: "--oc=1:${model}") workerModels)}); fi
             ;;
           spawn) ;;
           *) fail "unknown action: $action" ;;
@@ -99,10 +112,10 @@
         [[ -d .beads ]] || fail "initialize the board in $repo first"
         flywheel-route --live
         [[ -f .beads/flywheel-route-live.jsonl ]] || fail 'activate the live bead router before spawning'
-        ntm spawn "$name" "$@" \
+        ntm spawn "$name" "''${label[@]/#/--label=}" "''${workers[@]}" \
           --prompt='Use flywheel-route --claim for each bead. Announce and reserve after a successful claim.'
         # shellcheck disable=SC2016 # fish expands its own positional arguments.
-        exec ${pkgs.fish}/bin/fish -c 'flywheel-supervise $argv[1]' "$name"
+        exec ${pkgs.fish}/bin/fish -c 'flywheel-supervise $argv' "$name" "''${label[@]}"
       '';
 
       # Reuse upstream's OMP readiness patterns and model/thinking arguments.
@@ -126,7 +139,12 @@
             agent_type = "opencode";
             model = "openrouter/anthropic/claude-opus-5.5";
           }
-        ];
+        ] ++ lib.mapAttrsToList (tier: model: {
+          name = "tier-${tier}";
+          description = "Claims ${tier} beads";
+          agent_type = "opencode";
+          inherit model;
+        }) tiers;
       };
 
       # ntm's fish integration (command palette keybinding, completions,

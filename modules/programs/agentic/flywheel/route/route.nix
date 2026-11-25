@@ -46,9 +46,9 @@
             --ready|--claim)
               pane=''${FLYWHEEL_PANE_MODEL:-}
               if [[ $mode == --ready && $# == 2 ]]; then pane=$2; fi
-              ready=$(br ready --unassigned --json | jq --arg pane "$pane" --argjson tiers '${tierModels}' --slurpfile routes "$live" "$state"'
+              ready=$(br ready --unassigned --json | jq --arg pane "$pane" --arg tier "''${FLYWHEEL_TIER:-}" --argjson tiers '${tierModels}' --slurpfile routes "$live" "$state"'
                 INDEX($routes[]; .bead) as $index | map(select(. as $b | $index[.id] as $r |
-                  $r != null and $tiers[$r.route] == $pane and $r.state == ($b | state)))')
+                  $r != null and $tiers[$r.route] == $pane and ($tier == "" or $r.route == $tier) and $r.state == ($b | state)))')
               if [[ $mode == --ready ]]; then echo "$ready"; exit; fi
               id=$(jq -er 'first.id // empty' <<<"$ready") || { echo "No ready bead for $pane" >&2; exit 1; }
               exec br update --actor "''${AGENT_NAME:?missing pane identity}" "$id" --claim --json
