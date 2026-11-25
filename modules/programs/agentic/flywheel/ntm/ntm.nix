@@ -48,6 +48,52 @@
     {
       home.packages = [ ntm ];
 
+      # Command plugins inherit the caller's directory. Bind the board, pane
+      # cwd and Agent Mail project key to the same verified sibling checkout.
+      xdg.configFile."ntm/commands/spine".source = pkgs.writeShellScript "ntm-spine" ''
+        # Description: Check or launch a swarm in a platform registry checkout
+        # Usage: ntm spine check|spawn|routed NODE
+        set -euo pipefail
+        fail() { echo "ntm spine: $*" >&2; exit 1; }
+        [[ $# -ge 2 ]] || fail 'usage: ntm spine {check|spawn|routed} NODE [spawn flags]'
+        action=$1 node=$2
+        shift 2
+        case "$action" in
+          check|routed) [[ $# == 0 ]] || fail "$action takes only a registry node ID" ;;
+          spawn) ;;
+          *) fail "unknown action: $action" ;;
+        esac
+        root=$(git -C "$PWD" rev-parse --show-toplevel)
+        [[ ''${root##*/} == platform-team-workspace ]] || fail 'run from platform-team-workspace'
+        base=''${root%/*}
+        slug=$(${pkgs.jq}/bin/jq -er --arg id "$node" '
+          [.nodes[] | select(.id == $id) | .repo] | select(length == 1) | first
+          | select(type == "string" and test("^[A-Za-z0-9_-]+/[A-Za-z0-9_-][A-Za-z0-9._-]*$"))
+        ' "$base/platform-team-ops/registry.json") || fail "no unique repository in registry for $node"
+        name=''${slug##*/}
+        repo="$base/$name"
+        [[ $(git -C "$repo" rev-parse --show-toplevel) == "$repo" ]] || fail "missing or wrong checkout: $repo"
+        origin=$(git -C "$repo" remote get-url origin)
+        case "''${origin%.git}" in
+          "https://github.com/$slug"|"git@github.com:$slug"|"ssh://git@github.com/$slug"|"polygon-git:$slug"|"git@polygon-git:$slug") ;;
+          *) fail "origin for $repo does not match $slug: $origin" ;;
+        esac
+        branch=$(git -C "$repo" branch --show-current)
+        printf 'node=%s\nrepo=%s\npath=%s\nbranch=%s\n' "$node" "$slug" "$repo" "$branch"
+        [[ $action != check ]] || exit 0
+        [[ -n $branch && $branch != main ]] || fail 'select the swarm branch before spawning'
+        export NTM_PROJECTS_BASE="$base"
+        cd "$repo"
+        if [[ $action == spawn ]]; then exec ntm spawn "$name" "$@"; fi
+        [[ -d .beads ]] || fail "initialize the board in $repo first"
+        flywheel-route --live
+        [[ -f .beads/flywheel-route-live.jsonl ]] || fail 'activate the live bead router before spawning'
+        ntm spawn "$name" --oc=1:openrouter/deepseek/deepseek-v4.1-flash --oc=1:openrouter/anthropic/claude-opus-5.5 \
+          --prompt='Use flywheel-route --claim for each bead. Announce and reserve after a successful claim.'
+        # shellcheck disable=SC2016 # fish expands its own positional arguments.
+        exec ${pkgs.fish}/bin/fish -c 'flywheel-supervise $argv[1]' "$name"
+      '';
+
       # Reuse upstream's OMP readiness patterns and model/thinking arguments.
       # Only the autonomy flag differs from its interactive launch template.
       xdg.configFile."ntm/agents/omp.toml" = lib.mkIf config.programs.omp.enable {
