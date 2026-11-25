@@ -9,6 +9,7 @@
     let
       sources = import ./_sources.nix { inherit (pkgs) fetchFromGitHub; };
       riderLicense = import ../_rider-license.nix;
+      workerModels = lib.unique (builtins.attrValues (import ../_tier-models.nix));
 
       # ntm shells out to tmux and to the agent CLI (opencode) at runtime.
       # tmux is wrapped onto its PATH from nixpkgs; the agent CLI is
@@ -61,14 +62,12 @@
         case "$action" in
           check) [[ $# == 0 ]] || fail "$action takes only a registry node ID" ;;
           routed)
-            flash=openrouter/deepseek/deepseek-v4.1-flash
-            opus=openrouter/anthropic/claude-opus-5.5
-            if [[ $# == 0 ]]; then set -- "--oc=1:$flash" "--oc=1:$opus"; fi
+            if [[ $# == 0 ]]; then set -- ${lib.escapeShellArgs (map (model: "--oc=1:${model}") workerModels)}; fi
             for spec in "$@"; do
               [[ $spec =~ ^--oc=[1-9][0-9]*:(.+)$ ]] || fail 'expected --oc=COUNT:MODEL for each routed worker pool'
               case "''${BASH_REMATCH[1]}" in
-                "$flash"|"$opus") ;;
-                *) fail "no bead route for $spec; choose $flash or $opus" ;;
+                ${lib.concatMapStringsSep "|" lib.escapeShellArg workerModels}) ;;
+                *) fail "no bead route for $spec; configured workers: "${lib.escapeShellArg (lib.concatStringsSep ", " workerModels)} ;;
               esac
             done
             ;;
